@@ -14,19 +14,19 @@ set(STM32CUBE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/STM32CubeF4")
 set(STM32_DRIVERS_DIR "${STM32CUBE_ROOT}/Drivers")
 
 set(PROJECT_SOURCES
-    src/app.c
-    src/display.c
-    src/main.c
-    src/signal_gen.c
-    src/signal_gen_logic.c
-    src/signal_measure.c
-    src/signal_measure_logic.c
-    src/stm32f4xx_hal_msp.c
-    src/stm32f4xx_it.c
-    src/syscalls.c
-    src/system_stm32f4xx.c
-    src/ui_cmd.c
-    src/ui_ctrl.c
+    src/app/app.c
+    src/display/display_uart.c
+    src/system/main.c
+    src/signal_gen/signal_gen.c
+    src/signal_gen/signal_gen_logic.c
+    src/signal_measure/signal_measure.c
+    src/signal_measure/signal_measure_logic.c
+    src/board/stm32f4xx_hal_msp.c
+    src/board/stm32f4xx_it.c
+    src/system/syscalls.c
+    src/system/system_stm32f4xx.c
+    src/ui/ui_cmd.c
+    src/ui/ui_ctrl.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
@@ -47,6 +47,7 @@ add_executable(${PROJECT_TARGET}.elf ${PROJECT_SOURCES})
 
 target_include_directories(${PROJECT_TARGET}.elf PRIVATE
     include
+    src
     ${STM32_DRIVERS_DIR}/CMSIS/Include
     ${STM32_DRIVERS_DIR}/CMSIS/Device/ST/STM32F4xx/Include
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Inc

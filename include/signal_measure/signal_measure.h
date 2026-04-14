@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include "signal_measure_logic.h"
+#include "signal_measure/signal_measure_logic.h"
 
 void signal_measure_init(void);
 void signal_measure_poll(uint32_t now_ms);

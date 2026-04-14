@@ -1,12 +1,12 @@
-#include "app.h"
+#include "app/app.h"
 
 #include <stdbool.h>
 
-#include "display.h"
+#include "display/display.h"
 #include "main.h"
-#include "signal_gen.h"
-#include "signal_measure.h"
-#include "ui_ctrl.h"
+#include "signal_gen/signal_gen.h"
+#include "signal_measure/signal_measure.h"
+#include "ui/ui_ctrl.h"
 
 static uint32_t last_blink_ms;
 static uint32_t last_status_ms;

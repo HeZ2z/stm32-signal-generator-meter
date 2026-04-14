@@ -1,4 +1,4 @@
-#include "display.h"
+#include "display/display.h"
 
 #include <stdbool.h>
 #include <inttypes.h>

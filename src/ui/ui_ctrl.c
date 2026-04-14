@@ -1,13 +1,13 @@
-#include "ui_ctrl.h"
+#include "ui/ui_ctrl.h"
 
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "display.h"
+#include "display/display.h"
 #include "main.h"
-#include "signal_gen.h"
-#include "signal_measure.h"
-#include "ui_cmd.h"
+#include "signal_gen/signal_gen.h"
+#include "signal_measure/signal_measure.h"
+#include "ui/ui_cmd.h"
 static char command_buffer[48];
 static size_t command_length;
 static UART_HandleTypeDef *console_uart;

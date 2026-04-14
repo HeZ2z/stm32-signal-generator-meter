@@ -4,8 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "signal_gen.h"
-#include "signal_measure.h"
+#include "signal_gen/signal_gen.h"
+#include "signal_measure/signal_measure.h"
 #include "stm32f4xx_hal.h"
 
 void display_init(void);

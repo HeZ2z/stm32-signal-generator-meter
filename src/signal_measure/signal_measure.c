@@ -1,9 +1,9 @@
-#include "signal_measure.h"
+#include "signal_measure/signal_measure.h"
 
 #include <string.h>
 
 #include "main.h"
-#include "signal_measure_logic.h"
+#include "signal_measure/signal_measure_logic.h"
 
 static TIM_HandleTypeDef measure_timer;
 static volatile signal_measure_result_t latest_result;

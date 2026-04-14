@@ -1,7 +1,7 @@
-#include "signal_gen.h"
+#include "signal_gen/signal_gen.h"
 
 #include "main.h"
-#include "signal_gen_logic.h"
+#include "signal_gen/signal_gen_logic.h"
 
 static TIM_HandleTypeDef pwm_timer;
 static signal_gen_config_t current_config;
