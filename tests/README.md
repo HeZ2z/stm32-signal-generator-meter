@@ -6,12 +6,20 @@
 
 - `test_ui_cmd.c`：串口命令解析与命令缓冲行为
 - `test_signal_gen_logic.c`：`PWM` 参数边界与定时器换算逻辑
-- `run_host_tests.sh`：在宿主机上编译并运行上述测试
+- `CMakeLists.txt`：宿主机侧 `ctest` 入口
+- `run_host_tests.sh`：封装 `cmake + ctest` 的快捷入口
 
 运行方式：
 
 ```bash
 ./tests/run_host_tests.sh
+```
+
+或直接执行：
+
+```bash
+cmake -S tests -B build-host-tests
+ctest --test-dir build-host-tests --output-on-failure
 ```
 
 当前策略：

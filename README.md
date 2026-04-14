@@ -121,6 +121,13 @@ python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 ./tests/run_host_tests.sh
 ```
 
+或使用 `ctest`：
+
+```bash
+cmake -S tests -B build-host-tests
+ctest --test-dir build-host-tests --output-on-failure
+```
+
 8. 测量链路作为后续独立实验项处理，不影响主固件稳定性
 9. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
 
