@@ -1,4 +1,5 @@
 #include "main.h"
+#include "signal_measure.h"
 #include "stm32f4xx_it.h"
 
 void NMI_Handler(void) {}
@@ -33,4 +34,6 @@ void SysTick_Handler(void) {
   HAL_IncTick();
 }
 
-void TIM2_IRQHandler(void) {}
+void TIM3_IRQHandler(void) {
+  signal_measure_irq_handler();
+}

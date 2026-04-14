@@ -6,6 +6,7 @@
 #include "display.h"
 #include "main.h"
 #include "signal_gen.h"
+#include "signal_measure.h"
 #include "ui_cmd.h"
 static char command_buffer[48];
 static size_t command_length;
@@ -31,7 +32,7 @@ static void handle_command(const char *line) {
       return;
 
     case UI_CMD_STATUS:
-      display_status(signal_gen_current());
+      display_status(signal_gen_current(), signal_measure_latest());
       return;
 
     case UI_CMD_SET_FREQ:

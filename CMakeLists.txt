@@ -19,6 +19,8 @@ set(PROJECT_SOURCES
     src/main.c
     src/signal_gen.c
     src/signal_gen_logic.c
+    src/signal_measure.c
+    src/signal_measure_logic.c
     src/stm32f4xx_hal_msp.c
     src/stm32f4xx_it.c
     src/syscalls.c

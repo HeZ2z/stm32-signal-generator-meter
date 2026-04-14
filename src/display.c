@@ -95,14 +95,25 @@ void display_boot_banner(void) {
   display_printf("Clock=%lu Hz, UART=%lu baud\r\n", HAL_RCC_GetSysClockFreq(), APP_UART_BAUDRATE);
   display_printf("Console=%s\r\n", consoles[0].label);
   display_printf("PWM=PB6(TIM4_CH1)\r\n");
+  display_printf("MEAS=PB5(TIM3_CH2), loopback PB6->PB5\r\n");
 }
 
 void display_help(void) {
   display_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
 }
 
-void display_status(const signal_gen_config_t *config) {
-  display_printf("SET freq=%luHz duty=%u%%\r\n",
+void display_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
+  if (measurement != NULL && measurement->valid) {
+    display_printf("SET freq=%luHz duty=%u%% | MEAS freq=%luHz period=%luus duty=%u%%\r\n",
+                   config->frequency_hz,
+                   config->duty_percent,
+                   measurement->frequency_hz,
+                   measurement->period_us,
+                   measurement->duty_percent);
+    return;
+  }
+
+  display_printf("SET freq=%luHz duty=%u%% | MEAS no-signal\r\n",
                  config->frequency_hz,
                  config->duty_percent);
 }
