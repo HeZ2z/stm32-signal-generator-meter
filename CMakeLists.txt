@@ -1,0 +1,85 @@
+cmake_minimum_required(VERSION 3.22)
+
+if(NOT CMAKE_TOOLCHAIN_FILE)
+  set(CMAKE_TOOLCHAIN_FILE "${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchain-arm-none-eabi.cmake" CACHE FILEPATH "")
+endif()
+
+project(stm32_signal_generator_meter C ASM)
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+set(PROJECT_TARGET firmware)
+
+set(STM32CUBE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/STM32CubeF4")
+set(STM32_DRIVERS_DIR "${STM32CUBE_ROOT}/Drivers")
+
+set(PROJECT_SOURCES
+    src/app.c
+    src/display.c
+    src/main.c
+    src/signal_gen.c
+    src/stm32f4xx_hal_msp.c
+    src/stm32f4xx_it.c
+    src/syscalls.c
+    src/system_stm32f4xx.c
+    src/ui_ctrl.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
+    startup/startup_stm32f429xx.s
+)
+
+add_executable(${PROJECT_TARGET}.elf ${PROJECT_SOURCES})
+
+target_include_directories(${PROJECT_TARGET}.elf PRIVATE
+    include
+    ${STM32_DRIVERS_DIR}/CMSIS/Include
+    ${STM32_DRIVERS_DIR}/CMSIS/Device/ST/STM32F4xx/Include
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Inc
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Inc/Legacy
+)
+
+target_compile_definitions(${PROJECT_TARGET}.elf PRIVATE
+    STM32F429xx
+    USE_HAL_DRIVER
+)
+
+target_compile_options(${PROJECT_TARGET}.elf PRIVATE
+    -mcpu=cortex-m4
+    -mthumb
+    -mfpu=fpv4-sp-d16
+    -mfloat-abi=hard
+    -ffunction-sections
+    -fdata-sections
+    -Wall
+    -Wextra
+    -Werror
+    -Wno-unused-parameter
+)
+
+target_link_options(${PROJECT_TARGET}.elf PRIVATE
+    -T${CMAKE_CURRENT_SOURCE_DIR}/config/STM32F429ZITX_FLASH.ld
+    -mcpu=cortex-m4
+    -mthumb
+    -mfpu=fpv4-sp-d16
+    -mfloat-abi=hard
+    -specs=nano.specs
+    -Wl,--gc-sections
+    -Wl,-Map=${CMAKE_BINARY_DIR}/${PROJECT_TARGET}.map
+)
+
+add_custom_command(TARGET ${PROJECT_TARGET}.elf POST_BUILD
+    COMMAND ${CMAKE_OBJCOPY} -O ihex $<TARGET_FILE:${PROJECT_TARGET}.elf> ${CMAKE_BINARY_DIR}/${PROJECT_TARGET}.hex
+    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${PROJECT_TARGET}.elf> ${CMAKE_BINARY_DIR}/${PROJECT_TARGET}.bin
+    COMMENT "Generating HEX and BIN artifacts"
+)
