@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Host Test Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Configure Host Tests
+        run: cmake -S tests -B build-host-tests -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+
+      - name: Build Host Tests
+        run: cmake --build build-host-tests --config ${{ env.BUILD_TYPE }}
+
+      - name: Run Host Tests
+        run: ctest --test-dir build-host-tests --output-on-failure -C ${{ env.BUILD_TYPE }}
+
+      - name: Install ARM Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+
+      - name: Configure Firmware
+        run: >
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake
+
+      - name: Build Firmware
+        run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+      - name: Upload Firmware Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-artifacts
+          path: |
+            build/firmware.elf
+            build/firmware.hex
+            build/firmware.bin
+            build/firmware.map

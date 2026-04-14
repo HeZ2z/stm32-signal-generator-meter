@@ -125,11 +125,22 @@ python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 
 ```bash
 cmake -S tests -B build-host-tests
+cmake --build build-host-tests
 ctest --test-dir build-host-tests --output-on-failure
 ```
 
 8. 测量链路作为后续独立实验项处理，不影响主固件稳定性
 9. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
+
+## CI
+
+仓库已提供 GitHub Actions 工作流 [ci.yml](/home/hz/codes/hw/stm32/.github/workflows/ci.yml)，当前会在 `main` 的 `push` 和 `pull_request` 上执行：
+
+- 宿主机侧 `CTest`
+- `arm-none-eabi` 交叉编译固件
+- 上传 `firmware.elf/.hex/.bin/.map` 构建产物
+
+这条 CI 主线只验证“稳定主固件 + 宿主机逻辑测试”，不包含板级烧录和硬件联调。
 
 ## 当前非目标
 

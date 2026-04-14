@@ -12,6 +12,7 @@ The format loosely follows Keep a Changelog.
 - `STM32CubeF4` vendor dependency pinned as a proper git submodule.
 - Host-side regression tests for serial command parsing and `PWM` parameter logic.
 - Standalone `CTest` entry point for host-side tests under `tests/`.
+- GitHub Actions CI workflow for host-side tests and firmware cross-builds.
 
 ### Changed
 
