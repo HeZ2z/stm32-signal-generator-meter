@@ -29,3 +29,11 @@ add_executable(test_signal_gen_logic
 target_compile_definitions(test_signal_gen_logic PRIVATE HOST_TEST)
 target_include_directories(test_signal_gen_logic PRIVATE ../include)
 add_test(NAME test_signal_gen_logic COMMAND test_signal_gen_logic)
+
+add_executable(test_signal_measure_logic
+  test_signal_measure_logic.c
+  ../src/signal_measure_logic.c
+)
+target_compile_definitions(test_signal_measure_logic PRIVATE HOST_TEST)
+target_include_directories(test_signal_measure_logic PRIVATE ../include)
+add_test(NAME test_signal_measure_logic COMMAND test_signal_measure_logic)

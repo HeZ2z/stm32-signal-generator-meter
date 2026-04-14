@@ -1,36 +1,48 @@
 #include "ui_cmd.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
 bool ui_cmd_parse(const char *line, ui_cmd_t *cmd) {
   unsigned long value = 0;
+  const char *cursor;
 
   cmd->kind = UI_CMD_INVALID;
   cmd->value = 0U;
 
-  if (line == NULL || line[0] == '\0') {
+  if (line == NULL) {
     cmd->kind = UI_CMD_NONE;
     return false;
   }
 
-  if (strcmp(line, "help") == 0) {
+  cursor = line;
+  while (*cursor != '\0' && isspace((unsigned char)*cursor)) {
+    ++cursor;
+  }
+
+  if (*cursor == '\0') {
+    cmd->kind = UI_CMD_NONE;
+    return false;
+  }
+
+  if (strcmp(cursor, "help") == 0) {
     cmd->kind = UI_CMD_HELP;
     return true;
   }
 
-  if (strcmp(line, "status") == 0) {
+  if (strcmp(cursor, "status") == 0) {
     cmd->kind = UI_CMD_STATUS;
     return true;
   }
 
-  if (sscanf(line, "freq %lu", &value) == 1) {
+  if (sscanf(cursor, "freq %lu", &value) == 1) {
     cmd->kind = UI_CMD_SET_FREQ;
     cmd->value = (uint32_t)value;
     return true;
   }
 
-  if (sscanf(line, "duty %lu", &value) == 1) {
+  if (sscanf(cursor, "duty %lu", &value) == 1) {
     cmd->kind = UI_CMD_SET_DUTY;
     cmd->value = (uint32_t)value;
     return true;
@@ -55,9 +67,18 @@ bool ui_cmd_push_char(char *buffer,
     return true;
   }
 
+  if (ch == '\b' || ch == 0x7FU) {
+    if (*length > 0U) {
+      *length -= 1U;
+      buffer[*length] = '\0';
+    }
+    return true;
+  }
+
   if (*length < (capacity - 1U)) {
     buffer[*length] = (char)ch;
     *length += 1U;
+    buffer[*length] = '\0';
     return true;
   }
 

@@ -14,6 +14,14 @@
 | 2026-04-14 | `M2` | 宿主机逻辑回归测试 | `./tests/run_host_tests.sh` 输出 `PASS: test_ui_cmd`、`PASS: test_signal_gen_logic` | Pass | 覆盖命令解析、缓冲溢出、PWM 参数边界和换算 |
 | 2026-04-14 | `M2` | `CTest` 测试入口 | `cmake -S tests -B build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | 宿主机测试已具备标准化入口 |
 | 2026-04-14 | `M2` | 测试改动后固件重编译 | `cmake --build build` | Pass | 测试重构后主固件仍可生成 `firmware.elf` |
+| 2026-04-14 | `M4` | 测量逻辑宿主机回归测试 | `cmake -S tests -B build-host-tests -G Ninja && ctest --test-dir build-host-tests --output-on-failure` | Pass | 新增 `test_signal_measure_logic`，覆盖 `2000/30`、`1000/50`、`5000/70` 与异常输入 |
+| 2026-04-14 | `M4` | 主固件集成编译 | `cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja && cmake --build build` | Pass | `signal_measure`、`TIM3 IRQ`、`SET/MEAS` 串口输出已编译通过 |
+| 2026-04-14 | `M4` | 板级回环默认测量 | `sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200` 持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50%` | Pass | `PB6(TIM4_CH1) -> PB5(TIM3_CH2)` 回环工作正常，误差符合 `1 MHz` 计数分辨率预期 |
+| 2026-04-14 | `M4` | 板级断线退化行为 | 拔掉回环线后持续输出 `SET freq=1000Hz duty=50% | MEAS no-signal` | Pass | 无信号超时逻辑工作正常；串口打开瞬间的 `ERR unknown command` 视为残留字符，不影响测量结论 |
+| 2026-04-14 | `M4` | `2000/30` 参数联调 | 串口命令返回 `OK freq=2000`、`OK duty=30`，随后稳定输出 `SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30%` | Pass | `2000/30` 场景实测闭环正常，频率与周期误差符合 `1 MHz` 计数分辨率预期 |
+| 2026-04-14 | `M5` | 误差摘要串口输出 | 默认回环持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50% | ERR df=1Hz dt=-1us dd=0%` | Pass | `M5` 状态行已能直接展示频率、周期、占空比误差 |
+| 2026-04-14 | `M5` | `2000/30` 误差样例 | 持续输出 `SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30% | ERR df=4Hz dt=-1us dd=0%` | Pass | 误差摘要与原始 `MEAS` 一致，可直接用于答辩说明 |
+| 2026-04-14 | `M5` | `5000/70` 误差样例 | 持续输出 `SET freq=5000Hz duty=70% | MEAS freq=5025Hz period=199us duty=70% | ERR df=25Hz dt=-1us dd=0%` | Pass | 高频场景下仍保持占空比一致，频率误差符合 `1 MHz` 计数分辨率预期 |
 
 ## 后续记录建议
 
