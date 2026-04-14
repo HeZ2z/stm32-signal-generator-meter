@@ -1,6 +1,7 @@
 #include "signal_gen.h"
 
 #include "main.h"
+#include "signal_gen_logic.h"
 
 static TIM_HandleTypeDef pwm_timer;
 static signal_gen_config_t current_config;
@@ -42,23 +43,17 @@ void signal_gen_init(void) {
 
 bool signal_gen_apply(const signal_gen_config_t *config) {
   TIM_OC_InitTypeDef pwm_config = {0};
-  uint32_t target_ticks = APP_TIMER_TICK_HZ / config->frequency_hz;
   uint32_t timer_clock = timer_clock_hz();
-  uint32_t prescaler = (timer_clock / APP_TIMER_TICK_HZ) - 1U;
-  uint32_t pulse = (target_ticks * config->duty_percent) / 100U;
+  uint32_t prescaler = 0U;
+  uint32_t period = 0U;
+  uint32_t pulse = 0U;
 
-  if (config->frequency_hz < APP_PWM_MIN_FREQ_HZ ||
-      config->frequency_hz > APP_PWM_MAX_FREQ_HZ ||
-      config->duty_percent < APP_PWM_MIN_DUTY_PERCENT ||
-      config->duty_percent > APP_PWM_MAX_DUTY_PERCENT ||
-      target_ticks < 2U ||
-      target_ticks > 65535U ||
-      timer_clock < APP_TIMER_TICK_HZ) {
+  if (!signal_gen_compute_params(config, timer_clock, &prescaler, &period, &pulse)) {
     return false;
   }
 
   pwm_timer.Init.Prescaler = prescaler;
-  pwm_timer.Init.Period = target_ticks - 1U;
+  pwm_timer.Init.Period = period;
 
   if (HAL_TIM_PWM_Init(&pwm_timer) != HAL_OK) {
     return false;

@@ -41,6 +41,7 @@
 2. 串口打印当前频率和占空比设定
 3. 通过串口命令修改参数
 4. 用 `LED` 心跳证明主循环稳定运行
+5. 用宿主机侧小测试覆盖命令解析和 `PWM` 参数换算逻辑
 
 推荐验证方式：
 
@@ -82,12 +83,14 @@
 ├── docs/
 ├── include/
 ├── src/
+├── tests/
 └── tools/
 ```
 
 - `docs/`：设计说明、引脚规划、路线图、验证记录、决策记录
 - `include/`：公共头文件与模块接口的规划位置
 - `src/`：核心源码实现位置
+- `tests/`：宿主机侧最小回归测试
 - `cmake/`：后续工具链与构建辅助文件位置
 - `tools/`：烧录、串口、环境检查等辅助脚本位置
 
@@ -112,8 +115,14 @@ python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 ```
 
 6. 先验证 `UART`，再验证 `PWM`
-7. 测量链路作为后续独立实验项处理，不影响主固件稳定性
-8. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
+7. 先跑宿主机逻辑测试：
+
+```bash
+./tests/run_host_tests.sh
+```
+
+8. 测量链路作为后续独立实验项处理，不影响主固件稳定性
+9. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
 
 ## 当前非目标
 

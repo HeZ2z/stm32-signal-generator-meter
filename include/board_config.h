@@ -1,7 +1,9 @@
 #ifndef BOARD_CONFIG_H
 #define BOARD_CONFIG_H
 
+#ifndef HOST_TEST
 #include "stm32f4xx_hal.h"
+#endif
 
 #define BOARD_NAME "Apollo STM32F4 (temporary F429 mapping)"
 
@@ -21,6 +23,7 @@
  * These mappings are provisional until the exact Apollo core-board variant is
  * verified. Only this file should need changes when the real routing is known.
  */
+#ifndef HOST_TEST
 #define APP_UART_INSTANCE USART1
 #define APP_UART_GPIO_PORT GPIOA
 #define APP_UART_TX_PIN GPIO_PIN_9
@@ -32,5 +35,6 @@
 #define APP_PWM_PIN GPIO_PIN_6
 #define APP_PWM_GPIO_AF GPIO_AF2_TIM4
 #define APP_PWM_CHANNEL TIM_CHANNEL_1
+#endif
 
 #endif

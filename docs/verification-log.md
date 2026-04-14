@@ -11,6 +11,8 @@
 | 2026-04-14 | `M1` | 最小工程构建 | `cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja && cmake --build build` | Pass | 生成 `build/firmware.elf/.hex/.bin` |
 | 2026-04-14 | `M2` | 主固件稳定收口 | 仅保留 `UART + PWM + 串口命令 + LED` | Pass | 测量链路已从主固件移除，后续单独实验 |
 | 2026-04-14 | `M2` | 串口命令联调 | `picocom` 下 `freq 2000`、`duty 30` 返回 `OK ...` | Pass | 主固件交互链路已可演示 |
+| 2026-04-14 | `M2` | 宿主机逻辑回归测试 | `./tests/run_host_tests.sh` 输出 `PASS: test_ui_cmd`、`PASS: test_signal_gen_logic` | Pass | 覆盖命令解析、缓冲溢出、PWM 参数边界和换算 |
+| 2026-04-14 | `M2` | 测试改动后固件重编译 | `cmake --build build` | Pass | 测试重构后主固件仍可生成 `firmware.elf` |
 
 ## 后续记录建议
 

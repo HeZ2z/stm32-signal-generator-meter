@@ -18,10 +18,12 @@ set(PROJECT_SOURCES
     src/display.c
     src/main.c
     src/signal_gen.c
+    src/signal_gen_logic.c
     src/stm32f4xx_hal_msp.c
     src/stm32f4xx_it.c
     src/syscalls.c
     src/system_stm32f4xx.c
+    src/ui_cmd.c
     src/ui_ctrl.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
