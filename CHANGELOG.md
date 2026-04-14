@@ -6,7 +6,22 @@ The format loosely follows Keep a Changelog.
 
 ## [Unreleased]
 
-- Pending firmware implementation after exact board `MCU` confirmation.
+### Added
+
+- Stable main firmware for `UART + PWM + serial command + LED heartbeat`.
+- `STM32CubeF4` vendor dependency pinned as a proper git submodule.
+- Host-side regression tests for serial command parsing and `PWM` parameter logic.
+- Standalone `CTest` entry point for host-side tests under `tests/`.
+
+### Changed
+
+- Mainline scope narrowed to the stable demo firmware path for one-week delivery.
+- Documentation updated to reflect current progress at `M3 complete`, `M5 partial`, `M4 paused`.
+- Project verification records updated with serial bring-up, firmware build, and host-test evidence.
+
+### Removed
+
+- Unstable measurement path from the main firmware branch.
 
 ## [0.1.0-bootstrap] - 2026-04-14
 
