@@ -4,13 +4,14 @@
 
 ## 项目状态
 
-- 阶段：`M4 firmware integration`
+- 阶段：`M5 finish and polish`
 - 开发板：`Apollo STM32 F4/F7`
 - 当前硬件条件：`仅开发板本体，无外接传感器`
 - 当前策略：按 `STM32F429` 路线收敛主固件，优先完成板内回环测量闭环
 - 当前未决项：板载下载调试链路、实板最终 `TIM/UART` 引脚可用性
 
 当前仓库已提供一个基于 `STM32F429 + HAL + CMake` 的主固件，当前主路径包含 `UART + PWM + TIM PWM Input + 串口命令`，时钟默认走 `HSI 16 MHz`，并把板级引脚集中在 `include/board_config.h` 中，便于后续按实物统一修正。
+当前仓库还补充了误差样例和演示脚本文档，便于直接用于收尾、答辩和演示。
 
 ## 项目目标
 
@@ -72,7 +73,7 @@
 - `M4` 跑通输入测量闭环
 - `M5` 做误差分析、边界测试和演示材料整理
 
-详细计划见 [docs/roadmap.md](docs/roadmap.md)。
+详细计划见 [docs/roadmap.md](docs/roadmap.md)，误差分析见 [docs/error-analysis.md](docs/error-analysis.md)，演示流程见 [docs/demo-script.md](docs/demo-script.md)。
 
 ## 仓库结构
 
@@ -160,6 +161,8 @@ ctest --test-dir build-host-tests --output-on-failure
 - [docs/roadmap.md](docs/roadmap.md)：阶段计划
 - [docs/verification-log.md](docs/verification-log.md)：验证记录
 - [docs/decision-log.md](docs/decision-log.md)：关键决策记录
+- [docs/error-analysis.md](docs/error-analysis.md)：误差样例与分析
+- [docs/demo-script.md](docs/demo-script.md)：演示脚本
 
 ## 贡献说明
 
