@@ -7,6 +7,8 @@
 - `flash.sh`：烧录脚本
 - `serial.sh`：串口监听脚本
 - `env-check.sh`：环境检查脚本
-- `capture-notes.sh`：测试记录辅助脚本
 
-现阶段先保持目录说明，避免在工具链未定前提交误导性的脚本。
+当前已提供：
+
+- `env-check.sh`：检查工具链与串口节点
+- `serial_monitor.py`：最小串口监听工具

@@ -5,6 +5,12 @@
 | 日期 | 阶段 | 验证项 | 证据 | 结果 | 备注 |
 | --- | --- | --- | --- | --- | --- |
 | 2026-04-14 | `M0` | 仓库骨架整理 | README、docs、协作文件已建立 | Pass | 尚未进入硬件编译与烧录阶段 |
+| 2026-04-14 | `M1` | Ubuntu 串口识别 | `USB 232` 识别为 `CH340`，节点 `/dev/ttyUSB0` | Pass | 当前用户已加入 `dialout` |
+| 2026-04-14 | `M1` | 串口可打开 | `python3` 成功打开 `/dev/ttyUSB0`，`opened: True` | Pass | 当前无板载用户程序输出 |
+| 2026-04-14 | `M1` | 工具链安装 | 已安装 `arm-none-eabi-gcc`、`cmake`、`ninja`、`openocd`、`pyserial` | Pass | `CubeMX` 仍待手动安装 |
+| 2026-04-14 | `M1` | 最小工程构建 | `cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja && cmake --build build` | Pass | 生成 `build/firmware.elf/.hex/.bin` |
+| 2026-04-14 | `M2` | 主固件稳定收口 | 仅保留 `UART + PWM + 串口命令 + LED` | Pass | 测量链路已从主固件移除，后续单独实验 |
+| 2026-04-14 | `M2` | 串口命令联调 | `picocom` 下 `freq 2000`、`duty 30` 返回 `OK ...` | Pass | 主固件交互链路已可演示 |
 
 ## 后续记录建议
 
