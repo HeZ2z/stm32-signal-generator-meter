@@ -19,9 +19,10 @@ static UART_HandleTypeDef *ui_uart(void) {
 static void handle_command(const char *line) {
   ui_cmd_t cmd;
   signal_gen_config_t next = *signal_gen_current();
+  const signal_measure_result_t *measurement = signal_measure_latest();
 
   if (!ui_cmd_parse(line, &cmd)) {
-    display_write("ERR unknown command\r\n");
+    display_printf("ERR unknown command: %s\r\n", line);
     display_help();
     return;
   }
@@ -39,6 +40,7 @@ static void handle_command(const char *line) {
       next.frequency_hz = cmd.value;
       if (signal_gen_apply(&next)) {
         display_printf("OK freq=%lu\r\n", next.frequency_hz);
+        display_status(signal_gen_current(), measurement);
       } else {
         display_printf("ERR freq range=%u..%u\r\n", APP_PWM_MIN_FREQ_HZ, APP_PWM_MAX_FREQ_HZ);
       }
@@ -48,6 +50,7 @@ static void handle_command(const char *line) {
       next.duty_percent = (uint8_t)cmd.value;
       if (signal_gen_apply(&next)) {
         display_printf("OK duty=%u\r\n", next.duty_percent);
+        display_status(signal_gen_current(), measurement);
       } else {
         display_printf("ERR duty range=%u..%u\r\n", APP_PWM_MIN_DUTY_PERCENT, APP_PWM_MAX_DUTY_PERCENT);
       }
@@ -56,7 +59,7 @@ static void handle_command(const char *line) {
     case UI_CMD_NONE:
     case UI_CMD_INVALID:
     default:
-      display_write("ERR unknown command\r\n");
+      display_printf("ERR unknown command: %s\r\n", line);
       display_help();
       return;
   }
