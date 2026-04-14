@@ -139,7 +139,7 @@ ctest --test-dir build-host-tests --output-on-failure
 
 ## CI
 
-仓库已提供 GitHub Actions 工作流 [ci.yml](/home/hz/codes/hw/stm32/.github/workflows/ci.yml)，当前会在 `main` 的 `push` 和 `pull_request` 上执行：
+仓库已提供 GitHub Actions 工作流 [ci.yml](.github/workflows/ci.yml)，当前会在 `main` 的 `push` 和 `pull_request` 上执行：
 
 - 宿主机侧 `CTest`
 - `arm-none-eabi` 交叉编译固件
