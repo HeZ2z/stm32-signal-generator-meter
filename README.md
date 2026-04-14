@@ -1,4 +1,4 @@
-# STM32 Signal Generator & Frequency Meter
+# stm32-signal-generator-meter
 
 单板 `STM32F4/F7` 实践项目，目标是在一周周期内完成一个可演示、可答辩、可扩展的“信号发生与频率测量一体机”。
 
