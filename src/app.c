@@ -5,6 +5,7 @@
 #include "display.h"
 #include "main.h"
 #include "signal_gen.h"
+#include "signal_measure.h"
 #include "ui_ctrl.h"
 
 static uint32_t last_blink_ms;
@@ -73,6 +74,8 @@ void app_init(void) {
   display_write("init: uart ok\r\n");
   signal_gen_init();
   display_write("init: pwm ok\r\n");
+  signal_measure_init();
+  display_write("init: measure ok\r\n");
   ui_ctrl_init();
 
   display_boot_banner();
@@ -95,6 +98,7 @@ void app_init(void) {
 void app_run_once(void) {
   uint32_t now = HAL_GetTick();
   const signal_gen_config_t *config = signal_gen_current();
+  const signal_measure_result_t *measurement = signal_measure_latest();
 
   if ((now - last_blink_ms) >= 250U) {
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
@@ -103,9 +107,10 @@ void app_run_once(void) {
   }
 
   ui_ctrl_poll();
+  signal_measure_poll(now);
 
   if ((now - last_status_ms) >= APP_STATUS_PERIOD_MS) {
-    display_status(config);
+    display_status(config, measurement);
     last_status_ms = now;
   }
 }
