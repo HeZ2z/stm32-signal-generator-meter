@@ -1,6 +1,7 @@
 #include "display.h"
 
 #include <stdbool.h>
+#include <inttypes.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
@@ -100,20 +101,34 @@ void display_boot_banner(void) {
 
 void display_help(void) {
   display_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
+  display_write("Example: freq 2000 ; duty 30 ; status\r\n");
+  display_write("Loopback: PB6(TIM4_CH1) -> PB5(TIM3_CH2)\r\n");
 }
 
 void display_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
+  int32_t freq_error;
+  int32_t period_error;
+  int32_t duty_error;
+
   if (measurement != NULL && measurement->valid) {
-    display_printf("SET freq=%luHz duty=%u%% | MEAS freq=%luHz period=%luus duty=%u%%\r\n",
+    freq_error = (int32_t)measurement->frequency_hz - (int32_t)config->frequency_hz;
+    period_error = (int32_t)measurement->period_us -
+                   (int32_t)(1000000UL / config->frequency_hz);
+    duty_error = (int32_t)measurement->duty_percent - (int32_t)config->duty_percent;
+
+    display_printf("SET freq=%luHz duty=%u%% | MEAS freq=%luHz period=%luus duty=%u%% | ERR df=%" PRId32 "Hz dt=%" PRId32 "us dd=%" PRId32 "%%\r\n",
                    config->frequency_hz,
                    config->duty_percent,
                    measurement->frequency_hz,
                    measurement->period_us,
-                   measurement->duty_percent);
+                   measurement->duty_percent,
+                   freq_error,
+                   period_error,
+                   duty_error);
     return;
   }
 
-  display_printf("SET freq=%luHz duty=%u%% | MEAS no-signal\r\n",
+  display_printf("SET freq=%luHz duty=%u%% | MEAS no-signal | check PB6->PB5 loopback\r\n",
                  config->frequency_hz,
                  config->duty_percent);
 }

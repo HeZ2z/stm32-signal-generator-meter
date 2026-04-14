@@ -8,6 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Release
+  CCACHE_DIR: ~/.ccache
 
 jobs:
   build-and-test:
@@ -22,10 +23,22 @@ jobs:
       - name: Install Host Test Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build
+          sudo apt-get install -y cmake ninja-build ccache
+
+      - name: Restore Ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-ccache-${{ github.ref_name }}-
+            ${{ runner.os }}-ccache-
 
       - name: Configure Host Tests
-        run: cmake -S tests -B build-host-tests -G Ninja -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+        run: >
+          cmake -S tests -B build-host-tests -G Ninja
+          -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
 
       - name: Build Host Tests
         run: cmake --build build-host-tests --config ${{ env.BUILD_TYPE }}
@@ -36,16 +49,21 @@ jobs:
       - name: Install ARM Toolchain
         run: |
           sudo apt-get update
-          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi
+          sudo apt-get install -y gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eabi ccache
 
       - name: Configure Firmware
         run: >
           cmake -S . -B build -G Ninja
           -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
           -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache
+          -DCMAKE_ASM_COMPILER_LAUNCHER=ccache
 
       - name: Build Firmware
         run: cmake --build build --config ${{ env.BUILD_TYPE }}
+
+      - name: Show Ccache Stats
+        run: ccache --show-stats
 
       - name: Upload Firmware Artifacts
         uses: actions/upload-artifact@v4

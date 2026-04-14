@@ -19,6 +19,9 @@
 | 2026-04-14 | `M4` | 板级回环默认测量 | `sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200` 持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50%` | Pass | `PB6(TIM4_CH1) -> PB5(TIM3_CH2)` 回环工作正常，误差符合 `1 MHz` 计数分辨率预期 |
 | 2026-04-14 | `M4` | 板级断线退化行为 | 拔掉回环线后持续输出 `SET freq=1000Hz duty=50% | MEAS no-signal` | Pass | 无信号超时逻辑工作正常；串口打开瞬间的 `ERR unknown command` 视为残留字符，不影响测量结论 |
 | 2026-04-14 | `M4` | `2000/30` 参数联调 | 串口命令返回 `OK freq=2000`、`OK duty=30`，随后稳定输出 `SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30%` | Pass | `2000/30` 场景实测闭环正常，频率与周期误差符合 `1 MHz` 计数分辨率预期 |
+| 2026-04-14 | `M5` | 误差摘要串口输出 | 默认回环持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50% | ERR df=1Hz dt=-1us dd=0%` | Pass | `M5` 状态行已能直接展示频率、周期、占空比误差 |
+| 2026-04-14 | `M5` | `2000/30` 误差样例 | 持续输出 `SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30% | ERR df=4Hz dt=-1us dd=0%` | Pass | 误差摘要与原始 `MEAS` 一致，可直接用于答辩说明 |
+| 2026-04-14 | `M5` | `5000/70` 误差样例 | 持续输出 `SET freq=5000Hz duty=70% | MEAS freq=5025Hz period=199us duty=70% | ERR df=25Hz dt=-1us dd=0%` | Pass | 高频场景下仍保持占空比一致，频率误差符合 `1 MHz` 计数分辨率预期 |
 
 ## 后续记录建议
 
