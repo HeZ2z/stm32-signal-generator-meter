@@ -11,10 +11,22 @@ typedef enum {
   UI_SCREEN_CALIBRATION,
 } ui_screen_t;
 
+typedef enum {
+  UI_HIGHLIGHT_NONE = 0,
+  UI_HIGHLIGHT_FREQ_DOWN,
+  UI_HIGHLIGHT_FREQ_UP,
+  UI_HIGHLIGHT_DUTY_DOWN,
+  UI_HIGHLIGHT_DUTY_UP,
+  UI_HIGHLIGHT_RESET,
+  UI_HIGHLIGHT_HELP,
+} ui_highlight_t;
+
 typedef struct {
   ui_screen_t screen;
   bool touch_ready;
   bool touch_pressed;
+  bool more_open;
+  ui_highlight_t highlight;
   signal_gen_config_t active_config;
   signal_gen_config_t pending_config;
   touch_point_t last_touch;

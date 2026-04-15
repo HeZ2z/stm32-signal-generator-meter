@@ -37,6 +37,26 @@ typedef struct {
 
 static active_control_t active_control;
 
+static ui_highlight_t active_highlight(active_control_t control) {
+  switch (control) {
+    case ACTIVE_FREQ_M1000:
+      return UI_HIGHLIGHT_FREQ_DOWN;
+    case ACTIVE_FREQ_P1000:
+      return UI_HIGHLIGHT_FREQ_UP;
+    case ACTIVE_DUTY_M5:
+      return UI_HIGHLIGHT_DUTY_DOWN;
+    case ACTIVE_DUTY_P5:
+      return UI_HIGHLIGHT_DUTY_UP;
+    case ACTIVE_RESET:
+      return UI_HIGHLIGHT_RESET;
+    case ACTIVE_HELP:
+      return UI_HIGHLIGHT_HELP;
+    case ACTIVE_NONE:
+    default:
+      return UI_HIGHLIGHT_NONE;
+  }
+}
+
 static bool point_in_rect(const touch_point_t *point, rect_t rect) {
   return point->x >= rect.x0 && point->x <= rect.x1 && point->y >= rect.y0 && point->y <= rect.y1;
 }
@@ -71,6 +91,7 @@ static void ui_sync_touch_runtime(void) {
 
   view.touch_ready = touch_ready();
   view.touch_pressed = runtime->pressed;
+  view.highlight = active_highlight(active_control);
   if (runtime->last_point.x != 0U || runtime->last_point.y != 0U) {
     view.last_touch = runtime->last_point;
   }
@@ -78,11 +99,17 @@ static void ui_sync_touch_runtime(void) {
   (void)snprintf(view.title,
                  sizeof(view.title),
                  "%s",
-                 "SIGNAL TOUCH DEMO");
+                 "HEZZZ/STM32-SIGNAL-GENERATOR");
 }
 
 static void ui_refresh_lcd(void) {
   display_refresh_lcd(signal_gen_current(), signal_measure_latest());
+}
+
+static void ui_toggle_more(bool open) {
+  view.more_open = open;
+  ui_set_footer(open ? "PROJECT INFO OPEN" : "PROJECT INFO CLOSED");
+  ui_refresh_lcd();
 }
 
 /* UI 控制统一复用主显示模块选定的串口句柄。 */
@@ -91,22 +118,29 @@ static UART_HandleTypeDef *ui_uart(void) {
 }
 
 static active_control_t hit_control(const touch_point_t *point) {
-  if (point_in_rect(point, (rect_t){20U, 84U, 112U, 122U})) {
+  if (view.more_open) {
+    if (point_in_rect(point, (rect_t){360U, 14U, 458U, 42U})) {
+      return ACTIVE_HELP;
+    }
+    return ACTIVE_NONE;
+  }
+
+  if (point_in_rect(point, (rect_t){22U, 202U, 106U, 246U})) {
     return ACTIVE_FREQ_M1000;
   }
-  if (point_in_rect(point, (rect_t){130U, 84U, 222U, 122U})) {
+  if (point_in_rect(point, (rect_t){110U, 202U, 194U, 246U})) {
     return ACTIVE_FREQ_P1000;
   }
-  if (point_in_rect(point, (rect_t){258U, 84U, 350U, 122U})) {
+  if (point_in_rect(point, (rect_t){198U, 202U, 282U, 246U})) {
     return ACTIVE_DUTY_M5;
   }
-  if (point_in_rect(point, (rect_t){368U, 84U, 460U, 122U})) {
+  if (point_in_rect(point, (rect_t){286U, 202U, 370U, 246U})) {
     return ACTIVE_DUTY_P5;
   }
-  if (point_in_rect(point, (rect_t){20U, 212U, 150U, 250U})) {
+  if (point_in_rect(point, (rect_t){374U, 202U, 458U, 246U})) {
     return ACTIVE_RESET;
   }
-  if (point_in_rect(point, (rect_t){330U, 212U, 460U, 250U})) {
+  if (point_in_rect(point, (rect_t){360U, 14U, 458U, 42U})) {
     return ACTIVE_HELP;
   }
   return ACTIVE_NONE;
@@ -194,10 +228,13 @@ static void handle_touch_event(const touch_event_t *event) {
   switch (event->kind) {
     case TOUCH_EVENT_DOWN:
       active_control = hit_control(&event->point);
+      view.highlight = active_highlight(active_control);
       ui_refresh_lcd();
       break;
 
     case TOUCH_EVENT_MOVE:
+      active_control = hit_control(&event->point);
+      view.highlight = active_highlight(active_control);
       ui_refresh_lcd();
       break;
 
@@ -221,15 +258,19 @@ static void handle_touch_event(const touch_event_t *event) {
           apply_pending_config();
           break;
         case ACTIVE_HELP:
-          display_help();
-          ui_set_footer("HELP PRINTED TO UART");
-          ui_refresh_lcd();
+          ui_toggle_more(!view.more_open);
           break;
         case ACTIVE_NONE:
+          if (view.more_open) {
+            ui_toggle_more(false);
+          }
+          break;
         default:
           break;
       }
       active_control = ACTIVE_NONE;
+      view.highlight = UI_HIGHLIGHT_NONE;
+      ui_sync_touch_runtime();
       break;
 
     case TOUCH_EVENT_NONE:

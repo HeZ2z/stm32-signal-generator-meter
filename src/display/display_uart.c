@@ -104,7 +104,8 @@ void display_uart_boot_banner(void) {
 /* 帮助信息保持纯文本，方便普通串口工具直接查看。 */
 void display_uart_help(void) {
   display_uart_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
-  display_uart_write("Touch: tap F-1K F+1K D-5 D+5 RESET HELP on LCD\r\n");
+  display_uart_write("Touch: tap F-1K F+1K D-5 D+5 RESET MORE on LCD\r\n");
+  display_uart_write("MORE: show project info on LCD, help stays on UART\r\n");
   display_uart_write("Loopback: PB6(TIM4_CH1) -> PA7(TIM3_CH2)\r\n");
 }
 
