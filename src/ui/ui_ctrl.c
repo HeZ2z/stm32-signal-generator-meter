@@ -8,14 +8,18 @@
 #include "signal_gen/signal_gen.h"
 #include "signal_measure/signal_measure.h"
 #include "ui/ui_cmd.h"
+
+/* 保留一份行缓冲区，避免命令处理逻辑直接面对逐字节串口输入。 */
 static char command_buffer[48];
 static size_t command_length;
 static UART_HandleTypeDef *console_uart;
 
+/* UI 控制统一复用主显示模块选定的串口句柄。 */
 static UART_HandleTypeDef *ui_uart(void) {
   return display_uart_handle();
 }
 
+/* 根据解析结果执行命令，并在必要时即时刷新状态输出。 */
 static void handle_command(const char *line) {
   ui_cmd_t cmd;
   signal_gen_config_t next = *signal_gen_current();
@@ -38,6 +42,7 @@ static void handle_command(const char *line) {
 
     case UI_CMD_SET_FREQ:
       next.frequency_hz = cmd.value;
+      /* 频率和占空比都通过 signal_gen_apply 统一校验和下发。 */
       if (signal_gen_apply(&next)) {
         display_printf("OK freq=%lu\r\n", next.frequency_hz);
         display_status(signal_gen_current(), measurement);
@@ -65,11 +70,13 @@ static void handle_command(const char *line) {
   }
 }
 
+/* 复位命令缓冲状态并绑定控制串口。 */
 void ui_ctrl_init(void) {
   console_uart = ui_uart();
   command_length = 0U;
 }
 
+/* 非阻塞轮询串口输入，只有组装成完整命令后才进入执行流程。 */
 void ui_ctrl_poll(void) {
   uint8_t ch;
 
@@ -79,6 +86,7 @@ void ui_ctrl_poll(void) {
 
   bool line_ready = false;
   if (!ui_cmd_push_char(command_buffer, sizeof(command_buffer), ch, &command_length, &line_ready)) {
+    /* 缓冲区溢出时直接丢弃当前命令，避免残缺命令污染后续解析。 */
     display_write("ERR command too long\r\n");
     return;
   }

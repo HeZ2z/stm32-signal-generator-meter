@@ -14,6 +14,7 @@
 #define SDRAM_MODEREG_OPERATING_MODE_STANDARD 0x0000U
 #define SDRAM_MODEREG_WRITEBURST_MODE_SINGLE  0x0200U
 
+/* LCD 状态页在屏幕上显示的四行文本。 */
 typedef struct {
   char header[40];
   char set_line[40];
@@ -28,16 +29,20 @@ static bool lcd_frame_ready;
 static char lcd_state[64] = APP_LCD_STATUS;
 static lcd_status_view_t lcd_last_view;
 
+/* Apollo F429 将 LTDC 单层帧缓冲直接映射到外部 SDRAM 首地址。 */
 static uint16_t *const framebuffer = (uint16_t *)APP_LCD_FRAMEBUFFER_ADDRESS;
 
+/* 维护一份简短状态文本，供 UART 状态行和启动日志复用。 */
 static void lcd_set_state(const char *state) {
   (void)snprintf(lcd_state, sizeof(lcd_state), "%s", state);
 }
 
+/* 将 8 bit RGB 压缩为 LCD 当前使用的 RGB565 颜色格式。 */
 static uint16_t rgb565(uint8_t red, uint8_t green, uint8_t blue) {
   return (uint16_t)(((red & 0xF8U) << 8) | ((green & 0xFCU) << 3) | (blue >> 3));
 }
 
+/* 对帧缓冲做边界保护后的单点写入。 */
 static void lcd_plot(uint16_t x, uint16_t y, uint16_t color) {
   if (x >= APP_LCD_WIDTH || y >= APP_LCD_HEIGHT) {
     return;
@@ -46,6 +51,7 @@ static void lcd_plot(uint16_t x, uint16_t y, uint16_t color) {
   framebuffer[(y * APP_LCD_WIDTH) + x] = color;
 }
 
+/* 纯 CPU 填充矩形区域，用于当前最小 LCD 后端的所有绘制操作。 */
 static void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color) {
   for (uint16_t row = 0; row < height; ++row) {
     if ((y + row) >= APP_LCD_HEIGHT) {
@@ -60,6 +66,7 @@ static void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t heigh
   }
 }
 
+/* 仅提供项目当前状态页需要的最小 ASCII 点阵字库。 */
 static const uint8_t *glyph_for_char(char ch) {
   static const uint8_t blank[5] = {0x00, 0x00, 0x00, 0x00, 0x00};
   static const uint8_t dash[5] = {0x08, 0x08, 0x08, 0x08, 0x08};
@@ -154,6 +161,7 @@ static const uint8_t *glyph_for_char(char ch) {
   }
 }
 
+/* 按固定 5x7 字模绘制一个字符。 */
 static void lcd_draw_char(uint16_t x, uint16_t y, char ch, uint16_t fg, uint16_t bg, uint8_t scale) {
   const uint8_t *glyph = glyph_for_char(ch);
 
@@ -171,6 +179,7 @@ static void lcd_draw_char(uint16_t x, uint16_t y, char ch, uint16_t fg, uint16_t
   lcd_fill_rect((uint16_t)(x + (5U * scale)), y, scale, (uint16_t)(7U * scale), bg);
 }
 
+/* 绘制一串 ASCII 文本。 */
 static void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t fg, uint16_t bg, uint8_t scale) {
   const uint16_t advance = (uint16_t)(6U * scale);
   while (*text != '\0') {
@@ -180,10 +189,12 @@ static void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t f
   }
 }
 
+/* 用深色背景清空整块显示区域。 */
 static void lcd_clear(void) {
   lcd_fill_rect(0, 0, APP_LCD_WIDTH, APP_LCD_HEIGHT, rgb565(8, 18, 42));
 }
 
+/* 上电后先做最小 SDRAM 读写探针，排除帧缓冲地址或 FMC 初始化错误。 */
 static bool lcd_sdram_probe(void) {
   static const uint16_t pattern[] = {
       0xF800U, 0x07E0U, 0x001FU, 0xFFFFU,
@@ -203,6 +214,7 @@ static bool lcd_sdram_probe(void) {
   return true;
 }
 
+/* 启动阶段显示四色测试图，便于人工确认 LTDC 输出已经打通。 */
 static void lcd_fill_test_pattern(void) {
   uint16_t half_w = APP_LCD_WIDTH / 2U;
   uint16_t half_h = APP_LCD_HEIGHT / 2U;
@@ -216,6 +228,7 @@ static void lcd_fill_test_pattern(void) {
   lcd_fill_rect(228, 124, 24, 24, rgb565(0, 0, 0));
 }
 
+/* 绘制一次固定的状态页框架。 */
 static void lcd_draw_frame(void) {
   uint16_t accent = rgb565(70, 180, 255);
   uint16_t panel = rgb565(16, 32, 68);
@@ -229,12 +242,14 @@ static void lcd_draw_frame(void) {
   lcd_fill_rect(12, 192, 456, 2, line);
 }
 
+/* 局部清除单行文本区域，避免每次状态更新都整屏重画。 */
 static void lcd_clear_line(uint16_t x, uint16_t y, uint16_t width, uint8_t scale) {
   uint16_t panel_bg = rgb565(16, 32, 68);
   uint16_t height = (uint16_t)(7U * scale);
   lcd_fill_rect(x, y, width, height, panel_bg);
 }
 
+/* 先清除对应行，再绘制新的文本内容。 */
 static void lcd_draw_status_line(uint16_t x,
                                  uint16_t y,
                                  const char *text,
@@ -245,12 +260,14 @@ static void lcd_draw_status_line(uint16_t x,
   lcd_draw_string(x, y, text, fg, bg, scale);
 }
 
+/* 增量更新状态页，只重绘真正发生变化的行。 */
 static void lcd_draw_status_view(const lcd_status_view_t *view) {
   uint16_t title_fg = rgb565(0, 22, 50);
   uint16_t body_fg = rgb565(230, 242, 255);
   uint16_t panel_bg = rgb565(16, 32, 68);
   uint16_t title_bg = rgb565(70, 180, 255);
 
+  /* 框架只需要首次绘制一次，后续状态更新全部走增量刷新。 */
   if (!lcd_frame_ready) {
     lcd_draw_frame();
     lcd_draw_string(22, 20, view->header, title_fg, title_bg, 2);
@@ -283,6 +300,7 @@ static void lcd_draw_status_view(const lcd_status_view_t *view) {
   }
 }
 
+/* 将业务配置和测量结果格式化成 LCD 页面上的四行文本。 */
 static void lcd_format_status(lcd_status_view_t *view,
                               const signal_gen_config_t *config,
                               const signal_measure_result_t *measurement) {
@@ -322,6 +340,7 @@ static void lcd_format_status(lcd_status_view_t *view,
   (void)snprintf(view->err_line, sizeof(view->err_line), "CHECK PB6-PA7 LOOP");
 }
 
+/* 按 SDRAM 数据手册要求发送上电初始化命令序列。 */
 static HAL_StatusTypeDef lcd_sdram_startup_sequence(void) {
   FMC_SDRAM_CommandTypeDef command = {0};
   uint32_t mode = 0;
@@ -373,6 +392,7 @@ static HAL_StatusTypeDef lcd_sdram_startup_sequence(void) {
   return HAL_OK;
 }
 
+/* 初始化外部 SDRAM，使其可作为 LTDC 帧缓冲使用。 */
 static HAL_StatusTypeDef lcd_init_sdram(void) {
   FMC_SDRAM_TimingTypeDef timing = {0};
 
@@ -403,6 +423,7 @@ static HAL_StatusTypeDef lcd_init_sdram(void) {
   return lcd_sdram_startup_sequence();
 }
 
+/* 依据 Apollo 4342 面板参数初始化 LTDC 单层输出。 */
 static HAL_StatusTypeDef lcd_init_ltdc(void) {
   LTDC_LayerCfgTypeDef layer = {0};
 
@@ -450,6 +471,7 @@ static HAL_StatusTypeDef lcd_init_ltdc(void) {
   return HAL_OK;
 }
 
+/* 初始化背光控制 GPIO，默认先关闭背光避免错误画面直出。 */
 static void lcd_backlight_init(void) {
   GPIO_InitTypeDef gpio_init = {0};
 
@@ -464,10 +486,12 @@ static void lcd_backlight_init(void) {
   HAL_GPIO_WritePin(APP_LCD_BACKLIGHT_PORT, APP_LCD_BACKLIGHT_PIN, GPIO_PIN_RESET);
 }
 
+/* 在显示链路准备完成后再点亮背光。 */
 static void lcd_backlight_on(void) {
   HAL_GPIO_WritePin(APP_LCD_BACKLIGHT_PORT, APP_LCD_BACKLIGHT_PIN, GPIO_PIN_SET);
 }
 
+/* 启动 LCD 后端：先探测 SDRAM，再初始化 LTDC，最后显示测试图。 */
 void display_lcd_init(void) {
   lcd_ready = false;
   lcd_frame_ready = false;
@@ -497,28 +521,34 @@ void display_lcd_init(void) {
   lcd_set_state("ready test-pattern");
 }
 
+/* 查询 LCD 是否进入可绘制状态。 */
 bool display_lcd_ready_impl(void) {
   return lcd_ready;
 }
 
+/* 返回当前 LCD 名称。 */
 const char *display_lcd_name_impl(void) {
   return APP_LCD_NAME;
 }
 
+/* 返回当前 LCD 状态文本。 */
 const char *display_lcd_status_impl(void) {
   return lcd_state;
 }
 
+/* 仅在 LCD 已 ready 时才处理 LTDC 中断。 */
 void display_lcd_irq_handler(void) {
   if (lcd_ready) {
     HAL_LTDC_IRQHandler(&lcd_handle);
   }
 }
 
+/* LCD 当前不直接回显串口日志，保留接口便于后续扩展。 */
 void display_lcd_write(const char *text) {
   (void)text;
 }
 
+/* 绘制 LCD 启动欢迎页。 */
 void display_lcd_boot_banner(void) {
   lcd_status_view_t view = {0};
 
@@ -533,9 +563,11 @@ void display_lcd_boot_banner(void) {
   lcd_draw_status_view(&view);
 }
 
+/* 目前 LCD 后端没有独立帮助页，保留空接口与 UART 后端对齐。 */
 void display_lcd_help(void) {
 }
 
+/* 根据当前业务状态刷新 LCD 状态页。 */
 void display_lcd_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
   lcd_status_view_t view = {0};
 

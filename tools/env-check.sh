@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# 检查本机是否具备当前项目常用的构建和联调工具。
 set -euo pipefail
 
 echo "arm-none-eabi-gcc: $(command -v arm-none-eabi-gcc || echo missing)"
