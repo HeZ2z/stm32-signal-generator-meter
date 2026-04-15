@@ -1,4 +1,4 @@
-#include "ui_cmd.h"
+#include "ui/ui_cmd.h"
 
 #include <ctype.h>
 #include <stdio.h>

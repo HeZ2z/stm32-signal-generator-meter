@@ -1,8 +1,8 @@
-#include "signal_gen_logic.h"
+#include "signal_gen/signal_gen_logic.h"
 
 #include <stddef.h>
 
-#include "board_config.h"
+#include "board/board_config.h"
 
 bool signal_gen_config_valid(const signal_gen_config_t *config) {
   if (config == NULL) {

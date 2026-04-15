@@ -1,5 +1,6 @@
 #include "main.h"
-#include "signal_measure.h"
+#include "display/display_backend.h"
+#include "signal_measure/signal_measure.h"
 #include "stm32f4xx_it.h"
 
 void NMI_Handler(void) {}
@@ -36,4 +37,8 @@ void SysTick_Handler(void) {
 
 void TIM3_IRQHandler(void) {
   signal_measure_irq_handler();
+}
+
+void LTDC_IRQHandler(void) {
+  display_lcd_irq_handler();
 }

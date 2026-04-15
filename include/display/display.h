@@ -4,11 +4,15 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "signal_gen.h"
-#include "signal_measure.h"
+#include "signal_gen/signal_gen.h"
+#include "signal_measure/signal_measure.h"
 #include "stm32f4xx_hal.h"
 
 void display_init(void);
+void display_lcd_start(void);
+bool display_lcd_ready(void);
+const char *display_lcd_name(void);
+const char *display_lcd_state(void);
 void display_write(const char *text);
 void display_printf(const char *fmt, ...);
 void display_boot_banner(void);

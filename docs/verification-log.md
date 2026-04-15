@@ -22,6 +22,10 @@
 | 2026-04-14 | `M5` | 误差摘要串口输出 | 默认回环持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50% | ERR df=1Hz dt=-1us dd=0%` | Pass | `M5` 状态行已能直接展示频率、周期、占空比误差 |
 | 2026-04-14 | `M5` | `2000/30` 误差样例 | 持续输出 `SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30% | ERR df=4Hz dt=-1us dd=0%` | Pass | 误差摘要与原始 `MEAS` 一致，可直接用于答辩说明 |
 | 2026-04-14 | `M5` | `5000/70` 误差样例 | 持续输出 `SET freq=5000Hz duty=70% | MEAS freq=5025Hz period=199us duty=70% | ERR df=25Hz dt=-1us dd=0%` | Pass | 高频场景下仍保持占空比一致，频率误差符合 `1 MHz` 计数分辨率预期 |
+| 2026-04-15 | `M6` | LCD 集成代码构建 | `cmake --build build` | Pass | 已接入 `LTDC + SDRAM + RGB565` 最小 LCD 状态页实现，待实板点屏验证 |
+| 2026-04-15 | `M6` | 宿主机逻辑回归 | `ctest --test-dir build-host-tests --output-on-failure` | Pass | LCD 集成未改变命令解析、PWM 换算与测量逻辑测试结果 |
+| 2026-04-15 | `M6` | 回环迁脚方案 | 文档与固件统一改为 `PB6(TIM4_CH1) -> PA7(TIM3_CH2)` | Pass | `PB5` 已释放给 `LCD_BL`，后续实板验证必须按新回环线连接 |
+| 2026-04-15 | `M6` | Apollo LCD/SDRAM 真值收敛 | 代码与文档统一改为 `SDRAM Bank1 + 0xC0000000 + 4342 1/1/40/8/5/8` | Pass | 已移除错误的 `Bank2 + 0xD0000000` 假设，等待实板继续验证 |
 
 ## 后续记录建议
 

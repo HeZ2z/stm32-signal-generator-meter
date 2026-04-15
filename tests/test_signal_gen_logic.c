@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "signal_gen_logic.h"
+#include "signal_gen/signal_gen_logic.h"
 
 static int failures = 0;
 

@@ -16,24 +16,24 @@ add_compile_options(
 
 add_executable(test_ui_cmd
   test_ui_cmd.c
-  ../src/ui_cmd.c
+  ../src/ui/ui_cmd.c
 )
 target_compile_definitions(test_ui_cmd PRIVATE HOST_TEST)
-target_include_directories(test_ui_cmd PRIVATE ../include)
+target_include_directories(test_ui_cmd PRIVATE ../include ../src)
 add_test(NAME test_ui_cmd COMMAND test_ui_cmd)
 
 add_executable(test_signal_gen_logic
   test_signal_gen_logic.c
-  ../src/signal_gen_logic.c
+  ../src/signal_gen/signal_gen_logic.c
 )
 target_compile_definitions(test_signal_gen_logic PRIVATE HOST_TEST)
-target_include_directories(test_signal_gen_logic PRIVATE ../include)
+target_include_directories(test_signal_gen_logic PRIVATE ../include ../src)
 add_test(NAME test_signal_gen_logic COMMAND test_signal_gen_logic)
 
 add_executable(test_signal_measure_logic
   test_signal_measure_logic.c
-  ../src/signal_measure_logic.c
+  ../src/signal_measure/signal_measure_logic.c
 )
 target_compile_definitions(test_signal_measure_logic PRIVATE HOST_TEST)
-target_include_directories(test_signal_measure_logic PRIVATE ../include)
+target_include_directories(test_signal_measure_logic PRIVATE ../include ../src)
 add_test(NAME test_signal_measure_logic COMMAND test_signal_measure_logic)

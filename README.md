@@ -4,14 +4,17 @@
 
 ## 项目状态
 
-- 阶段：`M5 finish and polish`
+- 阶段：`M6 RGBLCD integration`
 - 开发板：`Apollo STM32 F4/F7`
 - 当前硬件条件：`仅开发板本体，无外接传感器`
 - 当前策略：按 `STM32F429` 路线收敛主固件，优先完成板内回环测量闭环
-- 当前未决项：板载下载调试链路、实板最终 `TIM/UART` 引脚可用性
+- 当前未决项：实板点屏最终验证
+  - 当前 LCD 真值基线：`Apollo STM32F429IGT6 + SDRAM Bank1 + framebuffer 0xC0000000`
+  - 已落地屏参：`480x272 RGB565`, `9MHz`, `HSYNC 1 / HBP 40 / HFP 5 / VSYNC 1 / VBP 8 / VFP 8`
+  - 已完成冲突处理：`PB5` 固定改作 `LCD_BL`，测量输入迁到 `PA7(TIM3_CH2)`
 
 当前仓库已提供一个基于 `STM32F429 + HAL + CMake` 的主固件，当前主路径包含 `UART + PWM + TIM PWM Input + 串口命令`，时钟默认走 `HSI 16 MHz`，并把板级引脚集中在 `include/board_config.h` 中，便于后续按实物统一修正。
-当前仓库还补充了误差样例和演示脚本文档，便于直接用于收尾、答辩和演示。
+当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 最小状态页后端。
 
 ## 项目目标
 
@@ -25,6 +28,7 @@
 2. 测量频率、周期和占空比
 3. 至少一种参数调整方式：串口命令
 4. 通过 `UART` 输出设定值和实测值
+5. 为 `ALIENTEK 4342 RGBLCD` 提供并行显示后端，并保留 `UART` 调试兜底
 
 ## 为什么选这个题目
 
@@ -47,7 +51,7 @@
 
 推荐验证方式：
 
-- 使用杜邦线连接 `PB6(TIM4_CH1)` 到 `PB5(TIM3_CH2)`
+- 使用杜邦线连接 `PB6(TIM4_CH1)` 到 `PA7(TIM3_CH2)`
 - 用串口工具观察 `SET` 与 `MEAS` 输出
 - 用串口命令修改频率和占空比
 
@@ -56,12 +60,12 @@
 - 输出路径：`TIM + PWM`
 - 输入路径：`TIM PWM Input`
 - 控制路径：`UART 命令` 优先，按键作为补充
-- 显示路径：`UART` 优先，复杂显示放到后续
+- 显示路径：`UART` 主通道，`ALIENTEK 4342 RGBLCD` 作为当前扩展目标
 - 软件结构：
   - `signal_gen`：信号产生
   - `signal_measure`：输入测量
   - `ui_ctrl`：参数设置
-  - `display`：串口输出
+- `display`：统一显示接口，当前已接入 `UART`，并为 `RGBLCD` 预留后端
   - `app`：调度与状态管理
 
 ## 开发里程碑
@@ -71,9 +75,11 @@
 - `M2` 跑通最小工程与 `UART` 日志输出
 - `M3` 跑通 `PWM` 输出
 - `M4` 跑通输入测量闭环
-- `M5` 做误差分析、边界测试和演示材料整理
+- `M5` 参数调整、输出格式和误差展示收尾
+- `M6` 集成 `ALIENTEK 4342 RGBLCD`
 
 详细计划见 [docs/roadmap.md](docs/roadmap.md)，误差分析见 [docs/error-analysis.md](docs/error-analysis.md)，演示流程见 [docs/demo-script.md](docs/demo-script.md)。
+LCD 集成分析见 [docs/lcd-integration-notes.md](docs/lcd-integration-notes.md)。
 
 ## 仓库结构
 
@@ -119,7 +125,7 @@ cmake --build build
 python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 ```
 
-6. 先验证 `UART`，再验证 `PWM` 和 `PB6 -> PB5` 回环测量
+6. 先验证 `UART`，再验证 `PWM` 和 `PB6 -> PA7` 回环测量
 7. 先跑宿主机逻辑测试：
 
 ```bash
@@ -139,7 +145,7 @@ ctest --test-dir build-host-tests --output-on-failure
 
 ## CI
 
-仓库已提供 GitHub Actions 工作流 [ci.yml](/home/hz/codes/hw/stm32/.github/workflows/ci.yml)，当前会在 `main` 的 `push` 和 `pull_request` 上执行：
+仓库已提供 GitHub Actions 工作流 [ci.yml](.github/workflows/ci.yml)，当前会在 `main` 的 `push` 和 `pull_request` 上执行：
 
 - 宿主机侧 `CTest`
 - `arm-none-eabi` 交叉编译固件
@@ -150,7 +156,7 @@ ctest --test-dir build-host-tests --output-on-failure
 ## 当前非目标
 
 - 引入外接传感器
-- 在最小闭环跑通前扩展到复杂显示模块
+- 在缺少真实板级资料时猜测 `RGBLCD` 时序和引脚参数
 - 为了功能“看起来多”而牺牲一周周期内的可交付性
 
 ## 文档索引

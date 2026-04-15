@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "signal_gen.h"
+#include "signal_gen/signal_gen.h"
 
 bool signal_gen_config_valid(const signal_gen_config_t *config);
 bool signal_gen_compute_params(const signal_gen_config_t *config,

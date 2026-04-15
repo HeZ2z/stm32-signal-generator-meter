@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "ui_cmd.h"
+#include "ui/ui_cmd.h"
 
 static int failures = 0;
 

@@ -1,0 +1,86 @@
+#ifndef BOARD_CONFIG_H
+#define BOARD_CONFIG_H
+
+#ifndef HOST_TEST
+#include "stm32f4xx_hal.h"
+#endif
+
+#define BOARD_NAME "Apollo STM32F429IGT6"
+
+#define APP_UART_BAUDRATE 115200U
+#define APP_DEFAULT_PWM_FREQ_HZ 1000U
+#define APP_DEFAULT_PWM_DUTY_PERCENT 50U
+#define APP_STATUS_PERIOD_MS 500U
+
+#define APP_PWM_MIN_FREQ_HZ 20U
+#define APP_PWM_MAX_FREQ_HZ 100000U
+#define APP_PWM_MIN_DUTY_PERCENT 1U
+#define APP_PWM_MAX_DUTY_PERCENT 99U
+
+#define APP_TIMER_TICK_HZ 1000000U
+#define APP_MEASURE_SIGNAL_TIMEOUT_MS 1000U
+
+#define APP_LCD_ENABLED 1U
+#define APP_LCD_NAME "ALIENTEK 4342 RGBLCD"
+#define APP_LCD_STATUS "ready"
+
+#define APP_LCD_WIDTH 480U
+#define APP_LCD_HEIGHT 272U
+#define APP_LCD_PIXEL_CLOCK_HZ 9000000U
+
+/*
+ * Apollo STM32F429 guide, LTDC chapter, 0x4342 panel timing:
+ * HSW=1, VSW=1, HBP=40, VBP=8, HFP=5, VFP=8.
+ */
+#define APP_LCD_HSYNC 1U
+#define APP_LCD_HBP 40U
+#define APP_LCD_HFP 5U
+#define APP_LCD_VSYNC 1U
+#define APP_LCD_VBP 8U
+#define APP_LCD_VFP 8U
+
+#define APP_LCD_FRAMEBUFFER_ADDRESS 0xC0000000UL
+#define APP_LCD_FRAMEBUFFER_BYTES (APP_LCD_WIDTH * APP_LCD_HEIGHT * 2U)
+
+#define APP_SDRAM_BANK FMC_SDRAM_BANK1
+#define APP_SDRAM_BASE_ADDRESS 0xC0000000UL
+#define APP_SDRAM_TIMEOUT 0x1000U
+
+/*
+ * In ALIENTEK F4/F7 family material, RGBLCD backlight is typically tied to
+ * PB5 and reset is shared with the board reset circuit. That conflicts with the
+ * current TIM3_CH2 measurement input on PB5, so M6 needs an input-capture remap
+ * before LCD is enabled for real hardware.
+ */
+#define APP_LCD_BACKLIGHT_PORT GPIOB
+#define APP_LCD_BACKLIGHT_PIN GPIO_PIN_5
+#define APP_LCD_BACKLIGHT_GPIO_CLK_ENABLE() __HAL_RCC_GPIOB_CLK_ENABLE()
+
+/*
+ * Apollo V15 is treated as the F429IGT6 + SDRAM + RGBLCD route. LCD uses the
+ * LTDC PI/PJ/PK pin group and the backlight occupies PB5, so the measurement
+ * input moves from PB5 to PA7.
+ */
+#ifndef HOST_TEST
+#define APP_UART_INSTANCE USART1
+#define APP_UART_GPIO_PORT GPIOA
+#define APP_UART_TX_PIN GPIO_PIN_9
+#define APP_UART_RX_PIN GPIO_PIN_10
+#define APP_UART_GPIO_AF GPIO_AF7_USART1
+
+#define APP_PWM_TIM_INSTANCE TIM4
+#define APP_PWM_GPIO_PORT GPIOB
+#define APP_PWM_PIN GPIO_PIN_6
+#define APP_PWM_GPIO_AF GPIO_AF2_TIM4
+#define APP_PWM_CHANNEL TIM_CHANNEL_1
+
+#define APP_MEASURE_TIM_INSTANCE TIM3
+#define APP_MEASURE_CHANNEL_PERIOD TIM_CHANNEL_2
+#define APP_MEASURE_CHANNEL_HIGH TIM_CHANNEL_1
+#define APP_MEASURE_GPIO_PORT GPIOA
+#define APP_MEASURE_PIN GPIO_PIN_7
+#define APP_MEASURE_GPIO_AF GPIO_AF2_TIM3
+#define APP_MEASURE_TIM_IRQn TIM3_IRQn
+#endif
+
+#endif
