@@ -36,6 +36,17 @@ Thumbs.db
 *.log
 *.tmp
 
+# Python local tooling
+.python-version
+.venv/
+.venv-*/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+
 # Local backups
 *.bak
 *.bak-*
