@@ -7,6 +7,8 @@
 #include <string.h>
 
 #include "board/board_config.h"
+#include "touch/touch.h"
+#include "ui/ui_ctrl.h"
 
 #define SDRAM_MODEREG_BURST_LENGTH_1          0x0000U
 #define SDRAM_MODEREG_BURST_TYPE_SEQUENTIAL   0x0000U
@@ -20,14 +22,28 @@ typedef struct {
   char set_line[40];
   char meas_line[40];
   char err_line[40];
+  char touch_line[40];
+  char hint_line[40];
 } lcd_status_view_t;
 
 static LTDC_HandleTypeDef lcd_handle;
 static SDRAM_HandleTypeDef sdram_handle;
 static bool lcd_ready;
-static bool lcd_frame_ready;
 static char lcd_state[64] = APP_LCD_STATUS;
-static lcd_status_view_t lcd_last_view;
+
+typedef struct {
+  bool valid;
+  signal_gen_config_t pending_config;
+  char title[32];
+  char footer[64];
+  char set_line[40];
+  char meas_line[40];
+  char err_line[40];
+  char touch_line[40];
+  char hint_line[40];
+} lcd_ui_snapshot_t;
+
+static lcd_ui_snapshot_t lcd_ui_last;
 
 /* Apollo F429 将 LTDC 单层帧缓冲直接映射到外部 SDRAM 首地址。 */
 static uint16_t *const framebuffer = (uint16_t *)APP_LCD_FRAMEBUFFER_ADDRESS;
@@ -70,6 +86,7 @@ static void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t heigh
 static const uint8_t *glyph_for_char(char ch) {
   static const uint8_t blank[5] = {0x00, 0x00, 0x00, 0x00, 0x00};
   static const uint8_t dash[5] = {0x08, 0x08, 0x08, 0x08, 0x08};
+  static const uint8_t plus[5] = {0x08, 0x08, 0x3E, 0x08, 0x08};
   static const uint8_t period[5] = {0x00, 0x60, 0x60, 0x00, 0x00};
   static const uint8_t slash[5] = {0x20, 0x10, 0x08, 0x04, 0x02};
   static const uint8_t colon[5] = {0x00, 0x36, 0x36, 0x00, 0x00};
@@ -150,6 +167,7 @@ static const uint8_t *glyph_for_char(char ch) {
     case '8': return eight;
     case '9': return nine;
     case '-': return dash;
+    case '+': return plus;
     case '.': return period;
     case '/': return slash;
     case ':': return colon;
@@ -187,6 +205,22 @@ static void lcd_draw_string(uint16_t x, uint16_t y, const char *text, uint16_t f
     x = (uint16_t)(x + advance);
     ++text;
   }
+}
+
+static void lcd_draw_box(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t border, uint16_t fill) {
+  lcd_fill_rect(x, y, width, height, border);
+  if (width > 2U && height > 2U) {
+    lcd_fill_rect((uint16_t)(x + 1U), (uint16_t)(y + 1U), (uint16_t)(width - 2U), (uint16_t)(height - 2U), fill);
+  }
+}
+
+static void lcd_draw_button(uint16_t x, uint16_t y, uint16_t width, uint16_t height, const char *label) {
+  uint16_t border = rgb565(100, 208, 255);
+  uint16_t fill = rgb565(17, 42, 82);
+  uint16_t text = rgb565(234, 246, 255);
+
+  lcd_draw_box(x, y, width, height, border, fill);
+  lcd_draw_string((uint16_t)(x + 12U), (uint16_t)(y + 12U), label, text, fill, 2);
 }
 
 /* 用深色背景清空整块显示区域。 */
@@ -228,78 +262,6 @@ static void lcd_fill_test_pattern(void) {
   lcd_fill_rect(228, 124, 24, 24, rgb565(0, 0, 0));
 }
 
-/* 绘制一次固定的状态页框架。 */
-static void lcd_draw_frame(void) {
-  uint16_t accent = rgb565(70, 180, 255);
-  uint16_t panel = rgb565(16, 32, 68);
-  uint16_t line = rgb565(28, 54, 98);
-
-  lcd_clear();
-  lcd_fill_rect(12, 12, 456, 34, accent);
-  lcd_fill_rect(12, 54, 456, 186, panel);
-  lcd_fill_rect(12, 100, 456, 2, line);
-  lcd_fill_rect(12, 146, 456, 2, line);
-  lcd_fill_rect(12, 192, 456, 2, line);
-}
-
-/* 局部清除单行文本区域，避免每次状态更新都整屏重画。 */
-static void lcd_clear_line(uint16_t x, uint16_t y, uint16_t width, uint8_t scale) {
-  uint16_t panel_bg = rgb565(16, 32, 68);
-  uint16_t height = (uint16_t)(7U * scale);
-  lcd_fill_rect(x, y, width, height, panel_bg);
-}
-
-/* 先清除对应行，再绘制新的文本内容。 */
-static void lcd_draw_status_line(uint16_t x,
-                                 uint16_t y,
-                                 const char *text,
-                                 uint16_t fg,
-                                 uint16_t bg,
-                                 uint8_t scale) {
-  lcd_clear_line(x, y, 432U, scale);
-  lcd_draw_string(x, y, text, fg, bg, scale);
-}
-
-/* 增量更新状态页，只重绘真正发生变化的行。 */
-static void lcd_draw_status_view(const lcd_status_view_t *view) {
-  uint16_t title_fg = rgb565(0, 22, 50);
-  uint16_t body_fg = rgb565(230, 242, 255);
-  uint16_t panel_bg = rgb565(16, 32, 68);
-  uint16_t title_bg = rgb565(70, 180, 255);
-
-  /* 框架只需要首次绘制一次，后续状态更新全部走增量刷新。 */
-  if (!lcd_frame_ready) {
-    lcd_draw_frame();
-    lcd_draw_string(22, 20, view->header, title_fg, title_bg, 2);
-    lcd_frame_ready = true;
-    lcd_last_view.header[0] = '\0';
-    lcd_last_view.set_line[0] = '\0';
-    lcd_last_view.meas_line[0] = '\0';
-    lcd_last_view.err_line[0] = '\0';
-  }
-
-  if (strcmp(lcd_last_view.header, view->header) != 0) {
-    lcd_fill_rect(22, 20, 420, 14, title_bg);
-    lcd_draw_string(22, 20, view->header, title_fg, title_bg, 2);
-    (void)snprintf(lcd_last_view.header, sizeof(lcd_last_view.header), "%s", view->header);
-  }
-
-  if (strcmp(lcd_last_view.set_line, view->set_line) != 0) {
-    lcd_draw_status_line(24, 66, view->set_line, body_fg, panel_bg, 2);
-    (void)snprintf(lcd_last_view.set_line, sizeof(lcd_last_view.set_line), "%s", view->set_line);
-  }
-
-  if (strcmp(lcd_last_view.meas_line, view->meas_line) != 0) {
-    lcd_draw_status_line(24, 112, view->meas_line, body_fg, panel_bg, 2);
-    (void)snprintf(lcd_last_view.meas_line, sizeof(lcd_last_view.meas_line), "%s", view->meas_line);
-  }
-
-  if (strcmp(lcd_last_view.err_line, view->err_line) != 0) {
-    lcd_draw_status_line(24, 158, view->err_line, body_fg, panel_bg, 2);
-    (void)snprintf(lcd_last_view.err_line, sizeof(lcd_last_view.err_line), "%s", view->err_line);
-  }
-}
-
 /* 将业务配置和测量结果格式化成 LCD 页面上的四行文本。 */
 static void lcd_format_status(lcd_status_view_t *view,
                               const signal_gen_config_t *config,
@@ -338,6 +300,108 @@ static void lcd_format_status(lcd_status_view_t *view,
 
   (void)snprintf(view->meas_line, sizeof(view->meas_line), "MEAS NO-SIGNAL");
   (void)snprintf(view->err_line, sizeof(view->err_line), "CHECK PB6-PA7 LOOP");
+}
+
+static void lcd_draw_control_static(void) {
+  uint16_t panel = rgb565(14, 28, 56);
+  uint16_t accent = rgb565(70, 180, 255);
+  uint16_t line = rgb565(27, 56, 98);
+
+  lcd_clear();
+  lcd_fill_rect(12, 12, 456, 32, accent);
+  lcd_fill_rect(12, 52, 456, 86, panel);
+  lcd_fill_rect(12, 146, 456, 56, panel);
+  lcd_fill_rect(12, 208, 456, 52, panel);
+  lcd_fill_rect(12, 45, 456, 2, line);
+  lcd_fill_rect(12, 142, 456, 2, line);
+  lcd_fill_rect(12, 204, 456, 2, line);
+
+  lcd_draw_button(20, 84, 92, 38, "F-1K");
+  lcd_draw_button(130, 84, 92, 38, "F+1K");
+  lcd_draw_button(258, 84, 92, 38, "D-5");
+  lcd_draw_button(368, 84, 92, 38, "D+5");
+  lcd_draw_button(20, 212, 130, 38, "RESET");
+  lcd_draw_button(330, 212, 130, 38, "HELP");
+}
+
+static void lcd_draw_control_dynamic(const ui_ctrl_view_t *ui,
+                                     const lcd_status_view_t *status_view) {
+  uint16_t title_bg = rgb565(70, 180, 255);
+  uint16_t title_fg = rgb565(0, 22, 50);
+  uint16_t label_fg = rgb565(230, 242, 255);
+  uint16_t panel = rgb565(14, 28, 56);
+  uint16_t ok = rgb565(110, 230, 150);
+  uint16_t warn = rgb565(255, 196, 88);
+  char buffer[32];
+
+  lcd_fill_rect(18, 16, 440, 24, title_bg);
+  lcd_draw_string(24, 18, ui->title, title_fg, title_bg, 2);
+
+  lcd_fill_rect(20, 58, 200, 20, panel);
+  lcd_fill_rect(260, 58, 188, 20, panel);
+  lcd_draw_string(20, 58, "FREQ", label_fg, panel, 2);
+  lcd_draw_string(260, 58, "DUTY", label_fg, panel, 2);
+
+  lcd_fill_rect(20, 110, 200, 22, panel);
+  lcd_fill_rect(260, 110, 188, 22, panel);
+  (void)snprintf(buffer, sizeof(buffer), "%luHZ", ui->pending_config.frequency_hz);
+  lcd_draw_string(20, 110, buffer, ok, panel, 3);
+  (void)snprintf(buffer, sizeof(buffer), "%u%%", ui->pending_config.duty_percent);
+  lcd_draw_string(260, 110, buffer, warn, panel, 3);
+
+  lcd_fill_rect(20, 150, 440, 12, panel);
+  lcd_fill_rect(20, 164, 440, 12, panel);
+  lcd_fill_rect(20, 178, 440, 12, panel);
+  lcd_fill_rect(20, 220, 300, 12, panel);
+  lcd_fill_rect(20, 234, 300, 12, panel);
+  lcd_draw_string(20, 150, status_view->set_line, label_fg, panel, 1);
+  lcd_draw_string(20, 164, status_view->meas_line, label_fg, panel, 1);
+  lcd_draw_string(20, 178, status_view->err_line, label_fg, panel, 1);
+  lcd_draw_string(20, 220, status_view->touch_line, label_fg, panel, 1);
+  lcd_draw_string(20, 234, status_view->hint_line, label_fg, panel, 1);
+  lcd_draw_string(20, 248, ui->footer, label_fg, rgb565(8, 18, 42), 1);
+}
+
+static void lcd_render_ui(const ui_ctrl_view_t *ui,
+                          const signal_gen_config_t *config,
+                          const signal_measure_result_t *measurement) {
+  lcd_status_view_t status_view = {0};
+
+  lcd_format_status(&status_view, config, measurement);
+  (void)snprintf(status_view.touch_line,
+                 sizeof(status_view.touch_line),
+                 "TOUCH %s X=%u Y=%u",
+                 ui->touch_ready ? (ui->touch_pressed ? "DOWN" : "READY") : "FAIL",
+                 ui->last_touch.x,
+                 ui->last_touch.y);
+  (void)snprintf(status_view.hint_line,
+                 sizeof(status_view.hint_line),
+                 "UART HELP/STATUS/FREQ/DUTY");
+
+  if (!lcd_ui_last.valid ||
+      strcmp(lcd_ui_last.title, ui->title) != 0 ||
+      strcmp(lcd_ui_last.footer, ui->footer) != 0 ||
+      lcd_ui_last.pending_config.frequency_hz != ui->pending_config.frequency_hz ||
+      lcd_ui_last.pending_config.duty_percent != ui->pending_config.duty_percent ||
+      strcmp(lcd_ui_last.set_line, status_view.set_line) != 0 ||
+      strcmp(lcd_ui_last.meas_line, status_view.meas_line) != 0 ||
+      strcmp(lcd_ui_last.err_line, status_view.err_line) != 0 ||
+      strcmp(lcd_ui_last.touch_line, status_view.touch_line) != 0 ||
+      strcmp(lcd_ui_last.hint_line, status_view.hint_line) != 0) {
+    if (!lcd_ui_last.valid) {
+      lcd_draw_control_static();
+    }
+    lcd_draw_control_dynamic(ui, &status_view);
+    lcd_ui_last.valid = true;
+    lcd_ui_last.pending_config = ui->pending_config;
+    (void)snprintf(lcd_ui_last.title, sizeof(lcd_ui_last.title), "%s", ui->title);
+    (void)snprintf(lcd_ui_last.footer, sizeof(lcd_ui_last.footer), "%s", ui->footer);
+    (void)snprintf(lcd_ui_last.set_line, sizeof(lcd_ui_last.set_line), "%s", status_view.set_line);
+    (void)snprintf(lcd_ui_last.meas_line, sizeof(lcd_ui_last.meas_line), "%s", status_view.meas_line);
+    (void)snprintf(lcd_ui_last.err_line, sizeof(lcd_ui_last.err_line), "%s", status_view.err_line);
+    (void)snprintf(lcd_ui_last.touch_line, sizeof(lcd_ui_last.touch_line), "%s", status_view.touch_line);
+    (void)snprintf(lcd_ui_last.hint_line, sizeof(lcd_ui_last.hint_line), "%s", status_view.hint_line);
+  }
 }
 
 /* 按 SDRAM 数据手册要求发送上电初始化命令序列。 */
@@ -494,8 +558,7 @@ static void lcd_backlight_on(void) {
 /* 启动 LCD 后端：先探测 SDRAM，再初始化 LTDC，最后显示测试图。 */
 void display_lcd_init(void) {
   lcd_ready = false;
-  lcd_frame_ready = false;
-  (void)memset(&lcd_last_view, 0, sizeof(lcd_last_view));
+  (void)memset(&lcd_ui_last, 0, sizeof(lcd_ui_last));
   lcd_set_state("init");
   lcd_backlight_init();
 
@@ -550,17 +613,16 @@ void display_lcd_write(const char *text) {
 
 /* 绘制 LCD 启动欢迎页。 */
 void display_lcd_boot_banner(void) {
-  lcd_status_view_t view = {0};
+  const ui_ctrl_view_t *ui = ui_ctrl_view();
 
   if (!lcd_ready) {
     return;
   }
 
-  (void)snprintf(view.header, sizeof(view.header), "APOLLO F429 RGBLCD");
-  (void)snprintf(view.set_line, sizeof(view.set_line), "LCD READY 480X272 RGB");
-  (void)snprintf(view.meas_line, sizeof(view.meas_line), "PWM PB6  MEAS PA7");
-  (void)snprintf(view.err_line, sizeof(view.err_line), "UART DEBUG STILL ACTIVE");
-  lcd_draw_status_view(&view);
+  if (ui != NULL) {
+    lcd_ui_last.valid = false;
+    display_lcd_status(signal_gen_current(), signal_measure_latest());
+  }
 }
 
 /* 目前 LCD 后端没有独立帮助页，保留空接口与 UART 后端对齐。 */
@@ -569,12 +631,11 @@ void display_lcd_help(void) {
 
 /* 根据当前业务状态刷新 LCD 状态页。 */
 void display_lcd_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
-  lcd_status_view_t view = {0};
+  const ui_ctrl_view_t *ui = ui_ctrl_view();
 
-  if (!lcd_ready || config == NULL) {
+  if (!lcd_ready || config == NULL || ui == NULL) {
     return;
   }
 
-  lcd_format_status(&view, config, measurement);
-  lcd_draw_status_view(&view);
+  lcd_render_ui(ui, config, measurement);
 }

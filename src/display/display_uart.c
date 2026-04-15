@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include "main.h"
+#include "touch/touch.h"
 
 /* 支持同时初始化多组串口，当前默认选择 consoles[0] 作为主控制台。 */
 typedef struct {
@@ -83,14 +84,18 @@ void display_uart_write(const char *text) {
 /* 输出板卡、时钟和回环接线等最关键的启动信息。 */
 void display_uart_boot_banner(void) {
   char buffer[192];
+  const touch_runtime_t *touch = touch_runtime();
 
   int written = snprintf(buffer,
                          sizeof(buffer),
-                         "\r\n[%s]\r\nClock=%lu Hz, UART=%lu baud\r\nConsole=%s\r\nPWM=PB6(TIM4_CH1)\r\nMEAS=PA7(TIM3_CH2), loopback PB6->PA7\r\n",
+                         "\r\n[%s]\r\nClock=%lu Hz, UART=%lu baud\r\nConsole=%s\r\nPWM=PB6(TIM4_CH1)\r\nMEAS=PA7(TIM3_CH2), loopback PB6->PA7\r\nTouch=GT9XXX PH6/PI3/PI8/PH7\r\nTouchInit=%s%s%s\r\n",
                          BOARD_NAME,
                          HAL_RCC_GetSysClockFreq(),
                          (unsigned long)APP_UART_BAUDRATE,
-                         consoles[0].label);
+                         consoles[0].label,
+                         touch->status,
+                         touch->controller[0] != '\0' ? " ID=" : "",
+                         touch->controller[0] != '\0' ? touch->controller : "");
   if (written > 0) {
     display_uart_write(buffer);
   }
@@ -99,7 +104,7 @@ void display_uart_boot_banner(void) {
 /* 帮助信息保持纯文本，方便普通串口工具直接查看。 */
 void display_uart_help(void) {
   display_uart_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
-  display_uart_write("Example: freq 2000 ; duty 30 ; status\r\n");
+  display_uart_write("Touch: tap F-1K F+1K D-5 D+5 RESET HELP on LCD\r\n");
   display_uart_write("Loopback: PB6(TIM4_CH1) -> PA7(TIM3_CH2)\r\n");
 }
 
@@ -110,6 +115,7 @@ void display_uart_status(const signal_gen_config_t *config, const signal_measure
   int32_t duty_error;
   char buffer[192];
   const char *lcd_state = display_lcd_status_impl();
+  const touch_runtime_t *touch = touch_runtime();
 
   if (measurement != NULL && measurement->valid) {
     freq_error = (int32_t)measurement->frequency_hz - (int32_t)config->frequency_hz;
@@ -136,7 +142,13 @@ void display_uart_status(const signal_gen_config_t *config, const signal_measure
         length -= 2U;
       }
       if (length < (sizeof(buffer) - 1U)) {
-        (void)snprintf(buffer + length, sizeof(buffer) - length, " | LCD %s\r\n", lcd_state);
+        (void)snprintf(buffer + length,
+                       sizeof(buffer) - length,
+                       " | LCD %s | TOUCH %s%s%s\r\n",
+                       lcd_state,
+                       touch->status,
+                       touch->controller[0] != '\0' ? " ID=" : "",
+                       touch->controller[0] != '\0' ? touch->controller : "");
       }
       display_uart_write(buffer);
     }
@@ -145,10 +157,13 @@ void display_uart_status(const signal_gen_config_t *config, const signal_measure
 
   int written = snprintf(buffer,
                          sizeof(buffer),
-                         "SET freq=%luHz duty=%u%% | MEAS no-signal | check PB6->PA7 loopback | LCD %s\r\n",
+                         "SET freq=%luHz duty=%u%% | MEAS no-signal | check PB6->PA7 loopback | LCD %s | TOUCH %s%s%s\r\n",
                          config->frequency_hz,
                          config->duty_percent,
-                         lcd_state);
+                         lcd_state,
+                         touch->status,
+                         touch->controller[0] != '\0' ? " ID=" : "",
+                         touch->controller[0] != '\0' ? touch->controller : "");
   if (written > 0) {
     display_uart_write(buffer);
   }

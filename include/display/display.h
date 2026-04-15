@@ -28,6 +28,8 @@ void display_boot_banner(void);
 void display_help(void);
 /* 同步输出当前 SET/MEAS/ERR 状态。 */
 void display_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement);
+/* 仅刷新 LCD 页面，不向 UART 重复写状态。 */
+void display_refresh_lcd(const signal_gen_config_t *config, const signal_measure_result_t *measurement);
 /* 获取 UI 控制循环使用的主串口句柄。 */
 UART_HandleTypeDef *display_uart_handle(void);
 

@@ -6,6 +6,7 @@
 #include "main.h"
 #include "signal_gen/signal_gen.h"
 #include "signal_measure/signal_measure.h"
+#include "touch/touch.h"
 #include "ui/ui_ctrl.h"
 
 static uint32_t last_blink_ms;
@@ -98,16 +99,6 @@ void app_init(void) {
   display_write("init: pwm ok\r\n");
   signal_measure_init();
   display_write("init: measure ok\r\n");
-  ui_ctrl_init();
-  display_write("init: starting lcd\r\n");
-  display_lcd_start();
-  display_printf("init: lcd %s\r\n", display_lcd_state());
-
-  display_boot_banner();
-  display_write("Stable demo image: UART + PWM + command control\r\n");
-  display_write("LED heartbeat active on PB0/PB1\r\n");
-  display_help();
-
   /* 默认参数必须在启动阶段先落地，后续 UI 命令都基于这份当前配置修改。 */
   if (!signal_gen_apply(&(signal_gen_config_t){
           .frequency_hz = APP_DEFAULT_PWM_FREQ_HZ,
@@ -116,6 +107,17 @@ void app_init(void) {
     error_code = 2U;
     Error_Handler();
   }
+
+  ui_ctrl_init();
+  display_printf("init: touch %s\r\n", touch_runtime()->status);
+  display_write("init: starting lcd\r\n");
+  display_lcd_start();
+  display_printf("init: lcd %s\r\n", display_lcd_state());
+
+  display_boot_banner();
+  display_write("Stable demo image: TOUCH + PWM + LCD control\r\n");
+  display_write("LED heartbeat active on PB0/PB1\r\n");
+  display_help();
 
   last_blink_ms = HAL_GetTick();
   last_status_ms = HAL_GetTick();

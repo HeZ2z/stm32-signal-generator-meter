@@ -69,3 +69,7 @@ void display_status(const signal_gen_config_t *config, const signal_measure_resu
   display_uart_status(config, measurement);
   display_lcd_status(config, measurement);
 }
+
+void display_refresh_lcd(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
+  display_lcd_status(config, measurement);
+}

@@ -23,6 +23,7 @@ set(PROJECT_SOURCES
     src/signal_gen/signal_gen_logic.c
     src/signal_measure/signal_measure.c
     src/signal_measure/signal_measure_logic.c
+    src/touch/touch.c
     src/board/stm32f4xx_hal_msp.c
     src/board/stm32f4xx_it.c
     src/system/syscalls.c
