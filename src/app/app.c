@@ -27,11 +27,20 @@ static void led_init(void) {
 void SystemClock_Config(void) {
   RCC_OscInitTypeDef osc_init = {0};
   RCC_ClkInitTypeDef clk_init = {0};
+  RCC_PeriphCLKInitTypeDef periph_clk_init = {0};
+
+  __HAL_RCC_PWR_CLK_ENABLE();
+  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   osc_init.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   osc_init.HSIState = RCC_HSI_ON;
   osc_init.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  osc_init.PLL.PLLState = RCC_PLL_NONE;
+  osc_init.PLL.PLLState = RCC_PLL_ON;
+  osc_init.PLL.PLLSource = RCC_PLLSOURCE_HSI;
+  osc_init.PLL.PLLM = 16;
+  osc_init.PLL.PLLN = 336;
+  osc_init.PLL.PLLP = RCC_PLLP_DIV2;
+  osc_init.PLL.PLLQ = 7;
 
   if (HAL_RCC_OscConfig(&osc_init) != HAL_OK) {
     Error_Handler();
@@ -39,12 +48,21 @@ void SystemClock_Config(void) {
 
   clk_init.ClockType = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK |
                        RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
-  clk_init.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  clk_init.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   clk_init.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  clk_init.APB1CLKDivider = RCC_HCLK_DIV1;
-  clk_init.APB2CLKDivider = RCC_HCLK_DIV1;
+  clk_init.APB1CLKDivider = RCC_HCLK_DIV4;
+  clk_init.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&clk_init, FLASH_LATENCY_0) != HAL_OK) {
+  if (HAL_RCC_ClockConfig(&clk_init, FLASH_LATENCY_5) != HAL_OK) {
+    Error_Handler();
+  }
+
+  periph_clk_init.PeriphClockSelection = RCC_PERIPHCLK_LTDC;
+  periph_clk_init.PLLSAI.PLLSAIN = 180;
+  periph_clk_init.PLLSAI.PLLSAIR = 5;
+  periph_clk_init.PLLSAIDivR = RCC_PLLSAIDIVR_4;
+
+  if (HAL_RCCEx_PeriphCLKConfig(&periph_clk_init) != HAL_OK) {
     Error_Handler();
   }
 
@@ -77,6 +95,9 @@ void app_init(void) {
   signal_measure_init();
   display_write("init: measure ok\r\n");
   ui_ctrl_init();
+  display_write("init: starting lcd\r\n");
+  display_lcd_start();
+  display_printf("init: lcd %s\r\n", display_lcd_state());
 
   display_boot_banner();
   display_write("Stable demo image: UART + PWM + command control\r\n");

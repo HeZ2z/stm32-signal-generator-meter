@@ -15,6 +15,8 @@ set(STM32_DRIVERS_DIR "${STM32CUBE_ROOT}/Drivers")
 
 set(PROJECT_SOURCES
     src/app/app.c
+    src/display/display.c
+    src/display/display_lcd.c
     src/display/display_uart.c
     src/system/main.c
     src/signal_gen/signal_gen.c
@@ -33,10 +35,14 @@ set(PROJECT_SOURCES
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_sdram.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_fmc.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
@@ -73,7 +79,7 @@ target_compile_options(${PROJECT_TARGET}.elf PRIVATE
 )
 
 target_link_options(${PROJECT_TARGET}.elf PRIVATE
-    -T${CMAKE_CURRENT_SOURCE_DIR}/config/STM32F429ZITX_FLASH.ld
+    -T${CMAKE_CURRENT_SOURCE_DIR}/config/STM32F429IGTX_FLASH.ld
     -mcpu=cortex-m4
     -mthumb
     -mfpu=fpv4-sp-d16
