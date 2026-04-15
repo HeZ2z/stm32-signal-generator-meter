@@ -19,7 +19,12 @@ static touch_runtime_t runtime;
 static touch_event_t pending_event;
 static bool event_pending;
 static touch_point_t last_point;
+static touch_point_t debounce_point;
 static uint32_t last_move_ms;
+static uint32_t press_candidate_ms;
+static uint32_t release_candidate_ms;
+static bool press_candidate_active;
+static bool release_candidate_active;
 
 /* 使用与 Apollo HAL 例程一致的 GT9xxx 时序，但保留当前项目的轻量接口。 */
 static void touch_delay_cycle(void) {
@@ -43,6 +48,15 @@ static void touch_emit_event(touch_event_kind_t kind,
   event_pending = true;
   runtime.pressed = pressed;
   runtime.last_point = *point;
+}
+
+static uint16_t touch_abs_delta_u16(uint16_t a, uint16_t b) {
+  return a > b ? (uint16_t)(a - b) : (uint16_t)(b - a);
+}
+
+static bool touch_point_drifted(const touch_point_t *a, const touch_point_t *b, uint16_t limit_px) {
+  return touch_abs_delta_u16(a->x, b->x) > limit_px ||
+         touch_abs_delta_u16(a->y, b->y) > limit_px;
 }
 
 static void touch_gpio_clocks_enable(void) {
@@ -359,6 +373,11 @@ void touch_init(void) {
   event_pending = false;
   last_move_ms = 0U;
   last_point = (touch_point_t){0U, 0U};
+  debounce_point = (touch_point_t){0U, 0U};
+  press_candidate_ms = 0U;
+  release_candidate_ms = 0U;
+  press_candidate_active = false;
+  release_candidate_active = false;
   runtime.state = TOUCH_STATE_INIT;
   touch_set_status("GT9XXX INIT");
 
@@ -420,15 +439,36 @@ void touch_poll(uint32_t now_ms) {
     }
 
     if (!runtime.pressed) {
-      touch_emit_event(TOUCH_EVENT_DOWN, &point, true, now_ms);
-      last_point = point;
-      last_move_ms = now_ms;
+      release_candidate_active = false;
+      release_candidate_ms = 0U;
+
+      /* 触摸按下需要先稳定一个很短的窗口，避免轻微抖动被识别为多次点击。 */
+      if (!press_candidate_active ||
+          touch_point_drifted(&point, &debounce_point, APP_TOUCH_DEBOUNCE_DRIFT_PX)) {
+        debounce_point = point;
+        press_candidate_ms = now_ms;
+        press_candidate_active = true;
+        runtime.last_point = point;
+        return;
+      }
+
+      runtime.last_point = point;
+      if ((now_ms - press_candidate_ms) >= APP_TOUCH_PRESS_DEBOUNCE_MS) {
+        touch_emit_event(TOUCH_EVENT_DOWN, &point, true, now_ms);
+        last_point = point;
+        last_move_ms = now_ms;
+        press_candidate_active = false;
+      }
       return;
     }
 
+    press_candidate_active = false;
+    press_candidate_ms = 0U;
+    release_candidate_active = false;
+    release_candidate_ms = 0U;
     runtime.last_point = point;
-    if ((uint32_t)(point.x > last_point.x ? point.x - last_point.x : last_point.x - point.x) >= APP_TOUCH_MOVE_DELTA_PX ||
-        (uint32_t)(point.y > last_point.y ? point.y - last_point.y : last_point.y - point.y) >= APP_TOUCH_MOVE_DELTA_PX ||
+    if ((uint32_t)touch_abs_delta_u16(point.x, last_point.x) >= APP_TOUCH_MOVE_DELTA_PX ||
+        (uint32_t)touch_abs_delta_u16(point.y, last_point.y) >= APP_TOUCH_MOVE_DELTA_PX ||
         (now_ms - last_move_ms) >= APP_TOUCH_MOVE_INTERVAL_MS) {
       touch_emit_event(TOUCH_EVENT_MOVE, &point, true, now_ms);
       last_point = point;
@@ -438,10 +478,25 @@ void touch_poll(uint32_t now_ms) {
   }
 
   if (runtime.pressed) {
-    touch_emit_event(TOUCH_EVENT_UP, &last_point, false, now_ms);
-    touch_set_status("GT9XXX READY");
-    runtime.mapped_valid = true;
+    /* 释放同样做短暂确认，避免控制器在手指离屏边缘反复上下跳变。 */
+    if (!release_candidate_active) {
+      release_candidate_active = true;
+      release_candidate_ms = now_ms;
+      return;
+    }
+
+    if ((now_ms - release_candidate_ms) >= APP_TOUCH_RELEASE_DEBOUNCE_MS) {
+      touch_emit_event(TOUCH_EVENT_UP, &last_point, false, now_ms);
+      touch_set_status("GT9XXX READY");
+      runtime.mapped_valid = true;
+      release_candidate_active = false;
+      release_candidate_ms = 0U;
+    }
+    return;
   }
+
+  press_candidate_active = false;
+  press_candidate_ms = 0U;
 }
 
 bool touch_ready(void) {
