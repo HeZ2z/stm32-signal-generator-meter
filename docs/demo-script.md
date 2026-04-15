@@ -6,8 +6,9 @@
 
 - 固件已烧录到开发板
 - 开发板正常从 Flash 启动
-- 杜邦线连接 `PB6(TIM4_CH1)` 到 `PB5(TIM3_CH2)`
+- 杜邦线连接 `PB6(TIM4_CH1)` 到 `PA7(TIM3_CH2)`
 - 串口连接到 `/dev/ttyUSB0`
+- LCD 已点亮并进入状态页
 - 打开串口监视：
 
 ```bash
@@ -16,21 +17,14 @@ sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 
 ## 演示步骤
 
-1. 上电或复位后，说明系统已经完成 `PWM 输出 + 输入测量 + UART 输出` 闭环。
+1. 上电或复位后，说明系统已经完成 `PWM 输出 + 输入测量 + UART 输出 + LCD 显示 + 触摸调参` 闭环。
 2. 展示默认状态：
 
 ```text
 SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50% | ERR df=1Hz dt=-1us dd=0%
 ```
 
-3. 发送：
-
-```text
-freq 2000
-duty 30
-```
-
-说明系统已经从默认参数切换到新的目标输出。
+3. 在 LCD 上触摸将频率和占空比调整到 `2000/30`，说明系统已经从默认参数切换到新的目标输出。
 
 4. 展示 `2000/30` 的实测结果：
 
@@ -38,12 +32,7 @@ duty 30
 SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30% | ERR df=4Hz dt=-1us dd=0%
 ```
 
-5. 再发送：
-
-```text
-freq 5000
-duty 70
-```
+5. 再通过 LCD 触摸把参数调整到 `5000/70`。
 
 6. 展示 `5000/70` 的实测结果：
 
@@ -51,13 +40,14 @@ duty 70
 SET freq=5000Hz duty=70% | MEAS freq=5025Hz period=199us duty=70% | ERR df=25Hz dt=-1us dd=0%
 ```
 
-7. 拔掉 `PB6 -> PB5` 回环线，展示异常场景：
+7. 拔掉 `PB6 -> PA7` 回环线，展示异常场景：
 
 ```text
-SET freq=5000Hz duty=70% | MEAS no-signal | check PB6->PB5 loopback
+SET freq=5000Hz duty=70% | MEAS no-signal | check PB6->PA7 loopback
 ```
 
 8. 重新接回回环线，说明系统可恢复到正常测量状态。
+9. 如需兜底演示，可在串口输入 `help`、`status`、`freq <hz>`、`duty <1-99>` 证明 `UART` 仍可作为控制入口。
 
 ## 演示时建议说明
 
@@ -65,9 +55,12 @@ SET freq=5000Hz duty=70% | MEAS no-signal | check PB6->PB5 loopback
 - 当前误差主要来自 `1 MHz` 计数时钟的 `1 us` 量化分辨率。
 - 断线后系统不会继续显示旧测量值，而是明确提示 `no-signal`。
 - 这套方案不依赖外部信号源，只需要单板和一根杜邦线即可完成完整演示。
+- 推荐主演示参数固定为 `1000/50`、`2000/30`、`5000/70`。
+- `20Hz` 和 `100000Hz` 仅用于说明当前实现边界，不建议现场主演示。
 
 ## 失败回退方案
 
 - 若串口没有输出，先检查是否正常从 Flash 启动、波特率是否为 `115200`。
-- 若只有 `SET` 没有有效 `MEAS`，优先检查 `PB6 -> PB5` 杜邦线。
+- 若只有 `SET` 没有有效 `MEAS`，优先检查 `PB6 -> PA7` 杜邦线。
 - 若出现 `ERR unknown command`，重新输入标准命令：`help`、`status`、`freq <hz>`、`duty <1-99>`。
+- 若 LCD 可亮但触摸未恢复，优先回退到串口命令演示，不阻塞主链路说明。

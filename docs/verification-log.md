@@ -16,7 +16,7 @@
 | 2026-04-14 | `M2` | 测试改动后固件重编译 | `cmake --build build` | Pass | 测试重构后主固件仍可生成 `firmware.elf` |
 | 2026-04-14 | `M4` | 测量逻辑宿主机回归测试 | `cmake -S tests -B build-host-tests -G Ninja && ctest --test-dir build-host-tests --output-on-failure` | Pass | 新增 `test_signal_measure_logic`，覆盖 `2000/30`、`1000/50`、`5000/70` 与异常输入 |
 | 2026-04-14 | `M4` | 主固件集成编译 | `cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja && cmake --build build` | Pass | `signal_measure`、`TIM3 IRQ`、`SET/MEAS` 串口输出已编译通过 |
-| 2026-04-14 | `M4` | 板级回环默认测量 | `sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200` 持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50%` | Pass | `PB6(TIM4_CH1) -> PB5(TIM3_CH2)` 回环工作正常，误差符合 `1 MHz` 计数分辨率预期 |
+| 2026-04-14 | `M4` | 板级回环默认测量 | `sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200` 持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50%` | Pass | 早期验证使用 `PB6(TIM4_CH1) -> PB5(TIM3_CH2)`，后续已迁移到 `PA7` |
 | 2026-04-14 | `M4` | 板级断线退化行为 | 拔掉回环线后持续输出 `SET freq=1000Hz duty=50% | MEAS no-signal` | Pass | 无信号超时逻辑工作正常；串口打开瞬间的 `ERR unknown command` 视为残留字符，不影响测量结论 |
 | 2026-04-14 | `M4` | `2000/30` 参数联调 | 串口命令返回 `OK freq=2000`、`OK duty=30`，随后稳定输出 `SET freq=2000Hz duty=30% | MEAS freq=2004Hz period=499us duty=30%` | Pass | `2000/30` 场景实测闭环正常，频率与周期误差符合 `1 MHz` 计数分辨率预期 |
 | 2026-04-14 | `M5` | 误差摘要串口输出 | 默认回环持续输出 `SET freq=1000Hz duty=50% | MEAS freq=1001Hz period=999us duty=50% | ERR df=1Hz dt=-1us dd=0%` | Pass | `M5` 状态行已能直接展示频率、周期、占空比误差 |
@@ -26,6 +26,12 @@
 | 2026-04-15 | `M6` | 宿主机逻辑回归 | `ctest --test-dir build-host-tests --output-on-failure` | Pass | LCD 集成未改变命令解析、PWM 换算与测量逻辑测试结果 |
 | 2026-04-15 | `M6` | 回环迁脚方案 | 文档与固件统一改为 `PB6(TIM4_CH1) -> PA7(TIM3_CH2)` | Pass | `PB5` 已释放给 `LCD_BL`，后续实板验证必须按新回环线连接 |
 | 2026-04-15 | `M6` | Apollo LCD/SDRAM 真值收敛 | 代码与文档统一改为 `SDRAM Bank1 + 0xC0000000 + 4342 1/1/40/8/5/8` | Pass | 已移除错误的 `Bank2 + 0xD0000000` 假设，等待实板继续验证 |
+| 2026-04-15 | `M7` | 触摸调参集成代码构建 | `cmake --build build` | Pass | 已切换到 `GT9xxx` 电容触摸、LCD 按键页和 UART 可写兜底路径，待实板验证触摸坐标方向与按键命中 |
+| 2026-04-15 | `M7` | GT9xxx 触摸控制器识别 | 串口输出 `TOUCH GT9XXX READY ID=9147` | Pass | 说明 `GT9147` 控制器已成功初始化并可读 |
+| 2026-04-15 | `M7` | 触摸状态位修复后恢复报点 | 修正 `GT9xxx` 状态清除逻辑后，串口临时调试输出出现 `touch raw ...` 与 `touch event=...` | Pass | 根因确认为空闲 `0x80` 状态未及时清除，修复后已恢复触摸事件链路 |
+| 2026-04-15 | `M7` | LCD 触摸调参联调 | 触摸后串口输出从 `SET freq=1000Hz duty=50%` 变为 `SET freq=20Hz duty=50%`、`SET freq=100000Hz duty=50%`、`SET freq=100000Hz duty=55%` | Pass | 说明 LCD 触摸按键已能实际触发参数修改 |
+| 2026-04-15 | `M7` | 清理调试日志后固件重编译 | `cmake --build build` | Pass | 已移除 `touch raw`、`touch event` 和原始寄存器调试刷屏，只保留摘要状态输出 |
+| 2026-04-15 | `M7` | 推荐演示频段确认 | `1000/50`、`2000/30`、`5000/70` 已有稳定样例；`20Hz` 与 `100000Hz` 仅作为边界现象观察 | Pass | 中频段适合主演示，极端频率用于说明当前 `1 MHz` 计时基准下的量化边界 |
 
 ## 后续记录建议
 

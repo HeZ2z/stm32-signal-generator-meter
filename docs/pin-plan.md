@@ -20,6 +20,7 @@
 | `LCD_BL` | 背光控制 | `PB5` | `GPIO` | Active | 与旧 `MEAS_IN` 冲突，已由 M6 迁脚消解 |
 | `LCD_RGB` | 屏幕数据/同步 | `PI12-15, PJ0-15, PK0-7` | `LTDC` | Active | 当前按 Apollo F429 RGBLCD 接口接入 |
 | `SDRAM` | 帧缓冲存储 | `PC0/2/3, PD, PE, PF, PG` | `FMC SDRAM Bank1` | Active | `PC0=SDNWE`, `PC2=SDNE0`, `PC3=SDCKE0`，帧缓冲基地址固定为 `0xC0000000` |
+| `TOUCH_GT9XXX` | 电容触摸控制 | `PH6/PI3/PI8/PH7` | `GPIO bit-bang I2C` | Active | `PH6=SCL`, `PI3=SDA`, `PI8=RST`, `PH7=INT` |
 | `LED` | 状态指示 | `PB0/PB1` | `GPIO` | Active | 保留心跳与错误闪烁用途 |
 | `KEY` | 本地输入 | TBD | `GPIO/EXTI` | Optional | 非首版必需 |
 
