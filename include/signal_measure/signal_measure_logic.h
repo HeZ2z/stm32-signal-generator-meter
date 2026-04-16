@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+/* 单次测量得到的频率、周期和占空比。 */
 typedef struct {
   bool valid;
   uint32_t frequency_hz;
@@ -11,6 +12,7 @@ typedef struct {
   uint8_t duty_percent;
 } signal_measure_result_t;
 
+/* 将周期/高电平计数值换算为可展示的测量结果。 */
 bool signal_measure_compute_result(uint32_t period_ticks,
                                    uint32_t high_ticks,
                                    uint32_t timer_tick_hz,

@@ -7,7 +7,9 @@
 #include <string.h>
 
 #include "main.h"
+#include "touch/touch.h"
 
+/* 支持同时初始化多组串口，当前默认选择 consoles[0] 作为主控制台。 */
 typedef struct {
   UART_HandleTypeDef handle;
   USART_TypeDef *instance;
@@ -26,6 +28,7 @@ static uart_console_t consoles[] = {
 
 static UART_HandleTypeDef *primary_uart = &consoles[0].handle;
 
+/* 根据串口实例打开对应 RCC 时钟。 */
 static void enable_uart_clock(USART_TypeDef *instance) {
   if (instance == USART1) {
     __HAL_RCC_USART1_CLK_ENABLE();
@@ -36,6 +39,7 @@ static void enable_uart_clock(USART_TypeDef *instance) {
   }
 }
 
+/* 初始化串口 GPIO 复用。 */
 static void uart_gpio_init(const uart_console_t *console) {
   GPIO_InitTypeDef gpio_init = {0};
 
@@ -50,6 +54,7 @@ static void uart_gpio_init(const uart_console_t *console) {
   HAL_GPIO_Init(console->port, &gpio_init);
 }
 
+/* 初始化所有预留控制台，默认使用第一组作为当前活动串口。 */
 void display_uart_init(void) {
   for (size_t i = 0; i < (sizeof(consoles) / sizeof(consoles[0])); ++i) {
     enable_uart_clock(consoles[i].instance);
@@ -64,43 +69,54 @@ void display_uart_init(void) {
     consoles[i].handle.Init.HwFlowCtl = UART_HWCONTROL_NONE;
     consoles[i].handle.Init.OverSampling = UART_OVERSAMPLING_16;
 
+    /* 任一控制台初始化失败都视为致命错误，因为后续调试将失去文本输出。 */
     if (HAL_UART_Init(&consoles[i].handle) != HAL_OK) {
       Error_Handler();
     }
   }
 }
 
+/* 串口输出采用阻塞发送，确保日志顺序与主流程一致。 */
 void display_uart_write(const char *text) {
   HAL_UART_Transmit(primary_uart, (uint8_t *)text, (uint16_t)strlen(text), HAL_MAX_DELAY);
 }
 
+/* 输出板卡、时钟和回环接线等最关键的启动信息。 */
 void display_uart_boot_banner(void) {
   char buffer[192];
+  const touch_runtime_t *touch = touch_runtime();
 
   int written = snprintf(buffer,
                          sizeof(buffer),
-                         "\r\n[%s]\r\nClock=%lu Hz, UART=%lu baud\r\nConsole=%s\r\nPWM=PB6(TIM4_CH1)\r\nMEAS=PA7(TIM3_CH2), loopback PB6->PA7\r\n",
+                         "\r\n[%s]\r\nClock=%lu Hz, UART=%lu baud\r\nConsole=%s\r\nPWM=PB6(TIM4_CH1)\r\nMEAS=PA7(TIM3_CH2), loopback PB6->PA7\r\nTouch=GT9XXX PH6/PI3/PI8/PH7\r\nTouchInit=%s%s%s\r\n",
                          BOARD_NAME,
                          HAL_RCC_GetSysClockFreq(),
                          (unsigned long)APP_UART_BAUDRATE,
-                         consoles[0].label);
+                         consoles[0].label,
+                         touch->status,
+                         touch->controller[0] != '\0' ? " ID=" : "",
+                         touch->controller[0] != '\0' ? touch->controller : "");
   if (written > 0) {
     display_uart_write(buffer);
   }
 }
 
+/* 帮助信息保持纯文本，方便普通串口工具直接查看。 */
 void display_uart_help(void) {
   display_uart_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
-  display_uart_write("Example: freq 2000 ; duty 30 ; status\r\n");
+  display_uart_write("Touch: tap F-1K F+1K D-5 D+5 RESET MORE on LCD\r\n");
+  display_uart_write("MORE: show project info on LCD, help stays on UART\r\n");
   display_uart_write("Loopback: PB6(TIM4_CH1) -> PA7(TIM3_CH2)\r\n");
 }
 
+/* 将当前设定值、实测值和 LCD 状态拼成一行串口状态文本。 */
 void display_uart_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
   int32_t freq_error;
   int32_t period_error;
   int32_t duty_error;
   char buffer[192];
   const char *lcd_state = display_lcd_status_impl();
+  const touch_runtime_t *touch = touch_runtime();
 
   if (measurement != NULL && measurement->valid) {
     freq_error = (int32_t)measurement->frequency_hz - (int32_t)config->frequency_hz;
@@ -121,12 +137,19 @@ void display_uart_status(const signal_gen_config_t *config, const signal_measure
                            duty_error);
     if (written > 0) {
       size_t length = (size_t)written;
+      /* 先去掉原始换行，再把 LCD 状态追加到同一行末尾。 */
       if (length >= 2U && buffer[length - 2U] == '\r' && buffer[length - 1U] == '\n') {
         buffer[length - 2U] = '\0';
         length -= 2U;
       }
       if (length < (sizeof(buffer) - 1U)) {
-        (void)snprintf(buffer + length, sizeof(buffer) - length, " | LCD %s\r\n", lcd_state);
+        (void)snprintf(buffer + length,
+                       sizeof(buffer) - length,
+                       " | LCD %s | TOUCH %s%s%s\r\n",
+                       lcd_state,
+                       touch->status,
+                       touch->controller[0] != '\0' ? " ID=" : "",
+                       touch->controller[0] != '\0' ? touch->controller : "");
       }
       display_uart_write(buffer);
     }
@@ -135,15 +158,19 @@ void display_uart_status(const signal_gen_config_t *config, const signal_measure
 
   int written = snprintf(buffer,
                          sizeof(buffer),
-                         "SET freq=%luHz duty=%u%% | MEAS no-signal | check PB6->PA7 loopback | LCD %s\r\n",
+                         "SET freq=%luHz duty=%u%% | MEAS no-signal | check PB6->PA7 loopback | LCD %s | TOUCH %s%s%s\r\n",
                          config->frequency_hz,
                          config->duty_percent,
-                         lcd_state);
+                         lcd_state,
+                         touch->status,
+                         touch->controller[0] != '\0' ? " ID=" : "",
+                         touch->controller[0] != '\0' ? touch->controller : "");
   if (written > 0) {
     display_uart_write(buffer);
   }
 }
 
+/* UI 控制层通过这个接口获取当前主串口。 */
 UART_HandleTypeDef *display_uart_handle(void) {
   return primary_uart;
 }

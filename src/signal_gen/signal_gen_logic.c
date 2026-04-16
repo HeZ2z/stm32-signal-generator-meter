@@ -4,6 +4,7 @@
 
 #include "board/board_config.h"
 
+/* 校验 UI 层传入的 PWM 参数是否合法。 */
 bool signal_gen_config_valid(const signal_gen_config_t *config) {
   if (config == NULL) {
     return false;
@@ -19,6 +20,7 @@ bool signal_gen_config_valid(const signal_gen_config_t *config) {
   return true;
 }
 
+/* 按 1 MHz 目标计时基准计算 TIM4 的 PSC/ARR/CCR。 */
 bool signal_gen_compute_params(const signal_gen_config_t *config,
                                uint32_t timer_clock_hz,
                                uint32_t *prescaler,
@@ -34,6 +36,7 @@ bool signal_gen_compute_params(const signal_gen_config_t *config,
     return false;
   }
 
+  /* 先把目标频率换算成 1 MHz 计时下的周期 tick，再映射到寄存器值。 */
   target_ticks = APP_TIMER_TICK_HZ / config->frequency_hz;
   if (target_ticks < 2U || target_ticks > 65535U) {
     return false;

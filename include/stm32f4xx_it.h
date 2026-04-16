@@ -1,6 +1,7 @@
 #ifndef STM32F4XX_IT_H
 #define STM32F4XX_IT_H
 
+/* Cortex-M 异常和项目实际用到的外设中断入口声明。 */
 void NMI_Handler(void);
 void HardFault_Handler(void);
 void MemManage_Handler(void);

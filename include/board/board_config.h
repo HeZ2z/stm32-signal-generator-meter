@@ -5,21 +5,38 @@
 #include "stm32f4xx_hal.h"
 #endif
 
+/* 当前项目已经确认使用的 Apollo 核心板型号。 */
 #define BOARD_NAME "Apollo STM32F429IGT6"
 
+/* 串口和默认业务参数。 */
 #define APP_UART_BAUDRATE 115200U
 #define APP_DEFAULT_PWM_FREQ_HZ 1000U
 #define APP_DEFAULT_PWM_DUTY_PERCENT 50U
 #define APP_STATUS_PERIOD_MS 500U
 
+/* 串口命令允许设置的 PWM 边界。 */
 #define APP_PWM_MIN_FREQ_HZ 20U
 #define APP_PWM_MAX_FREQ_HZ 100000U
 #define APP_PWM_MIN_DUTY_PERCENT 1U
 #define APP_PWM_MAX_DUTY_PERCENT 99U
 
+/* 输入捕获统一使用 1 MHz 计时基准，便于直接换算为 us。 */
 #define APP_TIMER_TICK_HZ 1000000U
 #define APP_MEASURE_SIGNAL_TIMEOUT_MS 1000U
 
+/* 触摸驱动轮询与事件去抖参数。 */
+#define APP_TOUCH_MOVE_DELTA_PX 3U
+#define APP_TOUCH_MOVE_INTERVAL_MS 40U
+#define APP_TOUCH_PRESS_DEBOUNCE_MS 30U
+#define APP_TOUCH_RELEASE_DEBOUNCE_MS 45U
+#define APP_TOUCH_DEBOUNCE_DRIFT_PX 12U
+#define APP_TOUCH_I2C_DELAY_CYCLES 400U
+#define APP_TOUCH_MAX_POINTS 5U
+#define APP_TOUCH_SWAP_XY 0U
+#define APP_TOUCH_INVERT_X 0U
+#define APP_TOUCH_INVERT_Y 0U
+
+/* LCD 基础信息和默认状态文本。 */
 #define APP_LCD_ENABLED 1U
 #define APP_LCD_NAME "ALIENTEK 4342 RGBLCD"
 #define APP_LCD_STATUS "ready"
@@ -47,19 +64,16 @@
 #define APP_SDRAM_TIMEOUT 0x1000U
 
 /*
- * In ALIENTEK F4/F7 family material, RGBLCD backlight is typically tied to
- * PB5 and reset is shared with the board reset circuit. That conflicts with the
- * current TIM3_CH2 measurement input on PB5, so M6 needs an input-capture remap
- * before LCD is enabled for real hardware.
+ * Apollo/ALIENTEK 资料确认 PB5 用作 RGBLCD 背光控制，因此测量输入已经
+ * 从旧的 PB5 路线迁移到 PA7。
  */
 #define APP_LCD_BACKLIGHT_PORT GPIOB
 #define APP_LCD_BACKLIGHT_PIN GPIO_PIN_5
 #define APP_LCD_BACKLIGHT_GPIO_CLK_ENABLE() __HAL_RCC_GPIOB_CLK_ENABLE()
 
 /*
- * Apollo V15 is treated as the F429IGT6 + SDRAM + RGBLCD route. LCD uses the
- * LTDC PI/PJ/PK pin group and the backlight occupies PB5, so the measurement
- * input moves from PB5 to PA7.
+ * 非 HOST_TEST 构建使用真实板级映射。这里集中维护 UART、PWM、输入捕获
+ * 和中断入口，避免业务代码里散落硬编码引脚。
  */
 #ifndef HOST_TEST
 #define APP_UART_INSTANCE USART1
@@ -81,6 +95,20 @@
 #define APP_MEASURE_PIN GPIO_PIN_7
 #define APP_MEASURE_GPIO_AF GPIO_AF2_TIM3
 #define APP_MEASURE_TIM_IRQn TIM3_IRQn
+
+/*
+ * 0x4342 面板的触摸为 GT9xxx 电容屏，不是 XPT2046/HR2046 电阻屏。
+ * Apollo HAL 例程给出的引脚为：
+ * PH6=SCL, PI3=SDA, PI8=RST, PH7=INT。
+ */
+#define APP_TOUCH_I2C_SCL_PORT GPIOH
+#define APP_TOUCH_I2C_SCL_PIN GPIO_PIN_6
+#define APP_TOUCH_I2C_SDA_PORT GPIOI
+#define APP_TOUCH_I2C_SDA_PIN GPIO_PIN_3
+#define APP_TOUCH_RST_PORT GPIOI
+#define APP_TOUCH_RST_PIN GPIO_PIN_8
+#define APP_TOUCH_INT_PORT GPIOH
+#define APP_TOUCH_INT_PIN GPIO_PIN_7
 #endif
 
 #endif

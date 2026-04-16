@@ -1,5 +1,6 @@
 #include "main.h"
 
+/* 某些外设 GPIO 口由 board_config 决定，运行时按端口动态打开 RCC 时钟。 */
 static void enable_gpio_clock(GPIO_TypeDef *port) {
   if (port == GPIOA) {
     __HAL_RCC_GPIOA_CLK_ENABLE();
@@ -26,12 +27,14 @@ static void enable_gpio_clock(GPIO_TypeDef *port) {
   }
 }
 
+/* 初始化 HAL 公共底层能力。 */
 void HAL_MspInit(void) {
   __HAL_RCC_SYSCFG_CLK_ENABLE();
   __HAL_RCC_PWR_CLK_ENABLE();
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 }
 
+/* 配置 TIM3 输入捕获所需 GPIO 和中断。 */
 void HAL_TIM_IC_MspInit(TIM_HandleTypeDef *htim) {
   GPIO_InitTypeDef gpio_init = {0};
 
@@ -53,6 +56,7 @@ void HAL_TIM_IC_MspInit(TIM_HandleTypeDef *htim) {
   HAL_NVIC_EnableIRQ(APP_MEASURE_TIM_IRQn);
 }
 
+/* 按 Apollo F429 RGB565 实际走线配置 LTDC 输出引脚。 */
 void HAL_LTDC_MspInit(LTDC_HandleTypeDef *hltdc) {
   GPIO_InitTypeDef gpio_init = {0};
 
@@ -90,6 +94,7 @@ void HAL_LTDC_MspInit(LTDC_HandleTypeDef *hltdc) {
   HAL_NVIC_EnableIRQ(LTDC_IRQn);
 }
 
+/* 释放 LTDC 时钟和中断。 */
 void HAL_LTDC_MspDeInit(LTDC_HandleTypeDef *hltdc) {
   if (hltdc->Instance != LTDC) {
     return;
@@ -100,6 +105,7 @@ void HAL_LTDC_MspDeInit(LTDC_HandleTypeDef *hltdc) {
   HAL_NVIC_DisableIRQ(LTDC_IRQn);
 }
 
+/* 配置 Apollo 板载 SDRAM 使用的 FMC 管脚。 */
 void HAL_SDRAM_MspInit(SDRAM_HandleTypeDef *hsdram) {
   GPIO_InitTypeDef gpio_init = {0};
 

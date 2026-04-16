@@ -4,17 +4,18 @@
 
 ## 项目状态
 
-- 阶段：`M6 RGBLCD integration`
+- 阶段：`M7 touch tuning integrated`
 - 开发板：`Apollo STM32 F4/F7`
 - 当前硬件条件：`仅开发板本体，无外接传感器`
 - 当前策略：按 `STM32F429` 路线收敛主固件，优先完成板内回环测量闭环
-- 当前未决项：实板点屏最终验证
+- 当前未决项：整理提交并补齐最终文档
   - 当前 LCD 真值基线：`Apollo STM32F429IGT6 + SDRAM Bank1 + framebuffer 0xC0000000`
   - 已落地屏参：`480x272 RGB565`, `9MHz`, `HSYNC 1 / HBP 40 / HFP 5 / VSYNC 1 / VBP 8 / VFP 8`
   - 已完成冲突处理：`PB5` 固定改作 `LCD_BL`，测量输入迁到 `PA7(TIM3_CH2)`
+  - 已落地触摸基线：`GT9147/GT9xxx`, `PH6=SCL`, `PI3=SDA`, `PI8=RST`, `PH7=INT`
 
 当前仓库已提供一个基于 `STM32F429 + HAL + CMake` 的主固件，当前主路径包含 `UART + PWM + TIM PWM Input + 串口命令`，时钟默认走 `HSI 16 MHz`，并把板级引脚集中在 `include/board_config.h` 中，便于后续按实物统一修正。
-当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 最小状态页后端。
+当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 状态页后端 + `GT9xxx` 触摸调参入口。
 
 ## 项目目标
 
@@ -29,6 +30,7 @@
 3. 至少一种参数调整方式：串口命令
 4. 通过 `UART` 输出设定值和实测值
 5. 为 `ALIENTEK 4342 RGBLCD` 提供并行显示后端，并保留 `UART` 调试兜底
+6. 通过 `GT9xxx` 电容触摸在 LCD 上直接调整频率和占空比
 
 ## 为什么选这个题目
 
@@ -44,7 +46,7 @@
 
 1. 输出可配置频率和占空比的 `PWM`
 2. 通过 `TIM PWM Input` 测量回环信号
-3. 通过串口命令修改参数
+3. 通过串口命令或 LCD 触摸修改参数
 4. 串口同时打印当前设定值和实测值
 5. 用 `LED` 心跳证明主循环稳定运行
 6. 用宿主机侧小测试覆盖命令解析、`PWM` 参数换算和测量结果换算逻辑
@@ -59,8 +61,8 @@
 
 - 输出路径：`TIM + PWM`
 - 输入路径：`TIM PWM Input`
-- 控制路径：`UART 命令` 优先，按键作为补充
-- 显示路径：`UART` 主通道，`ALIENTEK 4342 RGBLCD` 作为当前扩展目标
+- 控制路径：`UART 命令 + GT9xxx 触摸按键`
+- 显示路径：`UART` 主通道，`ALIENTEK 4342 RGBLCD` 已接入状态页与触摸界面
 - 软件结构：
   - `signal_gen`：信号产生
   - `signal_measure`：输入测量
@@ -77,6 +79,19 @@
 - `M4` 跑通输入测量闭环
 - `M5` 参数调整、输出格式和误差展示收尾
 - `M6` 集成 `ALIENTEK 4342 RGBLCD`
+- `M7` 集成 `GT9xxx` 触摸调参
+
+## 推荐演示范围
+
+- 推荐主演示参数：`1000/50`、`2000/30`、`5000/70`
+- 推荐主演示链路：默认输出 -> 触摸改参数 -> 串口/屏幕同步显示 -> 拔线展示 `no-signal`
+- `20Hz` 和 `100000Hz` 仅作为边界现象观察，不建议作为主演示参数
+
+## 当前实现边界
+
+- 当前 `PWM` 发生与输入测量统一使用 `1 MHz` 计时基准，最小时间分辨率为 `1 us`
+- 中频段演示表现稳定，极端高频下每周期 tick 数过少，频率和占空比量化误差会明显放大
+- 极端低频切换时，`SET` 已更新而 `MEAS` 可能短暂保留上一帧或退化为 `no-signal`，这是当前状态刷新节奏与超时策略决定的
 
 详细计划见 [docs/roadmap.md](docs/roadmap.md)，误差分析见 [docs/error-analysis.md](docs/error-analysis.md)，演示流程见 [docs/demo-script.md](docs/demo-script.md)。
 LCD 集成分析见 [docs/lcd-integration-notes.md](docs/lcd-integration-notes.md)。
@@ -125,7 +140,7 @@ cmake --build build
 python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 ```
 
-6. 先验证 `UART`，再验证 `PWM` 和 `PB6 -> PA7` 回环测量
+6. 先验证 `UART`，再验证 `PWM`、`PB6 -> PA7` 回环测量和 LCD 触摸按键
 7. 先跑宿主机逻辑测试：
 
 ```bash
@@ -140,7 +155,7 @@ cmake --build build-host-tests
 ctest --test-dir build-host-tests --output-on-failure
 ```
 
-8. 串口观察 `SET freq=... duty=... | MEAS ...` 输出是否跟随设定变化
+8. 串口观察 `SET freq=... duty=... | MEAS ...` 输出是否跟随设定变化，LCD 触摸按键是否能触发参数调整
 9. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
 
 ## CI

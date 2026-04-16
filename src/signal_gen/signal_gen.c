@@ -6,6 +6,7 @@
 static TIM_HandleTypeDef pwm_timer;
 static signal_gen_config_t current_config;
 
+/* TIM4 挂在 APB1 上，分频后需要按 STM32 定时器倍频规则回推出真实时钟。 */
 static uint32_t timer_clock_hz(void) {
   uint32_t pclk = HAL_RCC_GetPCLK1Freq();
   uint32_t ppre = (RCC->CFGR & RCC_CFGR_PPRE1);
@@ -17,6 +18,7 @@ static uint32_t timer_clock_hz(void) {
   return pclk * 2U;
 }
 
+/* 初始化 PWM 输出引脚复用。 */
 static void pwm_gpio_init(void) {
   GPIO_InitTypeDef gpio_init = {0};
 
@@ -31,6 +33,7 @@ static void pwm_gpio_init(void) {
   HAL_GPIO_Init(APP_PWM_GPIO_PORT, &gpio_init);
 }
 
+/* 准备 TIM4 的基础工作模式，真正的频率参数在 apply 阶段设置。 */
 void signal_gen_init(void) {
   __HAL_RCC_TIM4_CLK_ENABLE();
   pwm_gpio_init();
@@ -41,6 +44,7 @@ void signal_gen_init(void) {
   pwm_timer.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 }
 
+/* 计算并应用新的 PWM 输出参数。 */
 bool signal_gen_apply(const signal_gen_config_t *config) {
   TIM_OC_InitTypeDef pwm_config = {0};
   uint32_t timer_clock = timer_clock_hz();
@@ -52,6 +56,7 @@ bool signal_gen_apply(const signal_gen_config_t *config) {
     return false;
   }
 
+  /* 每次配置变更都重新初始化 TIM 和通道，确保 ARR/CCR 同步到硬件。 */
   pwm_timer.Init.Prescaler = prescaler;
   pwm_timer.Init.Period = period;
 
@@ -76,6 +81,7 @@ bool signal_gen_apply(const signal_gen_config_t *config) {
   return true;
 }
 
+/* 返回当前已经成功下发到硬件的配置。 */
 const signal_gen_config_t *signal_gen_current(void) {
   return &current_config;
 }

@@ -11,6 +11,7 @@
 - `decision-log.md`：关键技术选择和约束变化记录
 - `error-analysis.md`：当前误差样例、原因说明和答辩表述
 - `demo-script.md`：演示步骤、示例输出和现场回退方案
+- `lcd-integration-notes.md`：Apollo 4342 RGBLCD 与 GT9xxx 触摸集成真值和联调结论
 
 ## 使用建议
 

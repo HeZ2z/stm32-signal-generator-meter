@@ -3,6 +3,7 @@
 #include "signal_measure/signal_measure.h"
 #include "stm32f4xx_it.h"
 
+/* 以下异常处理保持最小实现，便于在严重错误时停留现场。 */
 void NMI_Handler(void) {}
 
 void HardFault_Handler(void) {
@@ -35,10 +36,12 @@ void SysTick_Handler(void) {
   HAL_IncTick();
 }
 
+/* TIM3 中断仅转发给测量模块处理。 */
 void TIM3_IRQHandler(void) {
   signal_measure_irq_handler();
 }
 
+/* LTDC 中断统一交给显示后端。 */
 void LTDC_IRQHandler(void) {
   display_lcd_irq_handler();
 }

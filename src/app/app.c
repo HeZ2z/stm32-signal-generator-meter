@@ -6,12 +6,14 @@
 #include "main.h"
 #include "signal_gen/signal_gen.h"
 #include "signal_measure/signal_measure.h"
+#include "touch/touch.h"
 #include "ui/ui_ctrl.h"
 
 static uint32_t last_blink_ms;
 static uint32_t last_status_ms;
 static volatile uint32_t error_code;
 
+/* 初始化板载双色 LED，用于心跳和错误提示。 */
 static void led_init(void) {
   GPIO_InitTypeDef gpio_init = {0};
 
@@ -24,6 +26,7 @@ static void led_init(void) {
   HAL_GPIO_Init(GPIOB, &gpio_init);
 }
 
+/* 配置系统主时钟到 168 MHz，并额外提供 LTDC 像素时钟。 */
 void SystemClock_Config(void) {
   RCC_OscInitTypeDef osc_init = {0};
   RCC_ClkInitTypeDef clk_init = {0};
@@ -70,6 +73,7 @@ void SystemClock_Config(void) {
   HAL_SYSTICK_CLKSourceConfig(SYSTICK_CLKSOURCE_HCLK);
 }
 
+/* 出现不可恢复错误时，通过 LED 闪烁次数输出错误码。 */
 void Error_Handler(void) {
   while (1) {
     for (uint32_t i = 0; i < (error_code == 0U ? 1U : error_code); ++i) {
@@ -83,6 +87,7 @@ void Error_Handler(void) {
   }
 }
 
+/* 按“显示 -> 发生 -> 测量 -> 控制”的顺序拉起所有业务模块。 */
 void app_init(void) {
   HAL_Init();
   SystemClock_Config();
@@ -94,16 +99,7 @@ void app_init(void) {
   display_write("init: pwm ok\r\n");
   signal_measure_init();
   display_write("init: measure ok\r\n");
-  ui_ctrl_init();
-  display_write("init: starting lcd\r\n");
-  display_lcd_start();
-  display_printf("init: lcd %s\r\n", display_lcd_state());
-
-  display_boot_banner();
-  display_write("Stable demo image: UART + PWM + command control\r\n");
-  display_write("LED heartbeat active on PB0/PB1\r\n");
-  display_help();
-
+  /* 默认参数必须在启动阶段先落地，后续 UI 命令都基于这份当前配置修改。 */
   if (!signal_gen_apply(&(signal_gen_config_t){
           .frequency_hz = APP_DEFAULT_PWM_FREQ_HZ,
           .duty_percent = APP_DEFAULT_PWM_DUTY_PERCENT,
@@ -112,15 +108,28 @@ void app_init(void) {
     Error_Handler();
   }
 
+  ui_ctrl_init();
+  display_printf("init: touch %s\r\n", touch_runtime()->status);
+  display_write("init: starting lcd\r\n");
+  display_lcd_start();
+  display_printf("init: lcd %s\r\n", display_lcd_state());
+
+  display_boot_banner();
+  display_write("Stable demo image: TOUCH + PWM + LCD control\r\n");
+  display_write("LED heartbeat active on PB0/PB1\r\n");
+  display_help();
+
   last_blink_ms = HAL_GetTick();
   last_status_ms = HAL_GetTick();
 }
 
+/* 单次轮询负责心跳、命令处理、测量超时退化和周期性状态输出。 */
 void app_run_once(void) {
   uint32_t now = HAL_GetTick();
   const signal_gen_config_t *config = signal_gen_current();
   const signal_measure_result_t *measurement = signal_measure_latest();
 
+  /* 固件以固定节奏翻转 LED，便于快速确认主循环仍在运行。 */
   if ((now - last_blink_ms) >= 250U) {
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_0);
     HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_1);
@@ -130,6 +139,7 @@ void app_run_once(void) {
   ui_ctrl_poll();
   signal_measure_poll(now);
 
+  /* 状态输出频率故意低于主循环速度，避免串口和 LCD 被无意义刷屏。 */
   if ((now - last_status_ms) >= APP_STATUS_PERIOD_MS) {
     display_status(config, measurement);
     last_status_ms = now;
