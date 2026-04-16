@@ -2,6 +2,7 @@
 
 #include <stddef.h>
 
+/* 将输入捕获得到的 tick 值换算为频率、周期和占空比。 */
 bool signal_measure_compute_result(uint32_t period_ticks,
                                    uint32_t high_ticks,
                                    uint32_t timer_tick_hz,
@@ -16,6 +17,7 @@ bool signal_measure_compute_result(uint32_t period_ticks,
   result->frequency_hz = timer_tick_hz / period_ticks;
   result->period_us = (period_ticks * 1000000U) / timer_tick_hz;
 
+  /* 通过四舍五入减少整除截断带来的占空比抖动。 */
   duty_scaled = ((high_ticks * 100U) + (period_ticks / 2U)) / period_ticks;
   if (duty_scaled > 100U) {
     duty_scaled = 100U;
