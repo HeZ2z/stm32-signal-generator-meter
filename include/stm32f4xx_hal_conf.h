@@ -7,6 +7,7 @@ extern "C" {
 
 /* 只打开当前项目真实使用到的 HAL 模块，减少无关驱动编译开销。 */
 #define HAL_MODULE_ENABLED
+#define HAL_ADC_MODULE_ENABLED
 #define HAL_CORTEX_MODULE_ENABLED
 #define HAL_DMA_MODULE_ENABLED
 #define HAL_FLASH_MODULE_ENABLED
@@ -38,14 +39,16 @@ extern "C" {
 /* 仅包含当前启用模块需要的 HAL 头文件。 */
 #include "stm32f4xx_hal_rcc.h"
 #include "stm32f4xx_hal_rcc_ex.h"
+#include "stm32f4xx_hal_cortex.h"
+#include "stm32f4xx_hal_dma.h"
+#include "stm32f4xx_hal_adc.h"
+#include "stm32f4xx_hal_adc_ex.h"
 #include "stm32f4xx_hal_flash.h"
 #include "stm32f4xx_hal_flash_ex.h"
 #include "stm32f4xx_hal_gpio.h"
 #include "stm32f4xx_hal_ltdc.h"
 #include "stm32f4xx_hal_pwr.h"
 #include "stm32f4xx_hal_pwr_ex.h"
-#include "stm32f4xx_hal_cortex.h"
-#include "stm32f4xx_hal_dma.h"
 #include "stm32f4xx_hal_sdram.h"
 #include "stm32f4xx_hal_tim.h"
 #include "stm32f4xx_hal_tim_ex.h"

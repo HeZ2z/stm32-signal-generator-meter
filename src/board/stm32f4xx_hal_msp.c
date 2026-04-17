@@ -34,6 +34,45 @@ void HAL_MspInit(void) {
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 }
 
+/* 配置 ADC1 单通道采样和 DMA 回传，供 M8 波形页使用。 */
+void HAL_ADC_MspInit(ADC_HandleTypeDef *hadc) {
+  GPIO_InitTypeDef gpio_init = {0};
+  static DMA_HandleTypeDef scope_dma = {0};
+
+  if (hadc->Instance != APP_SCOPE_ADC_INSTANCE) {
+    return;
+  }
+
+  __HAL_RCC_ADC1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
+  enable_gpio_clock(APP_SCOPE_ADC_GPIO_PORT);
+
+  gpio_init.Pin = APP_SCOPE_ADC_PIN;
+  gpio_init.Mode = GPIO_MODE_ANALOG;
+  gpio_init.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(APP_SCOPE_ADC_GPIO_PORT, &gpio_init);
+
+  scope_dma.Instance = APP_SCOPE_ADC_DMA_INSTANCE;
+  scope_dma.Init.Channel = APP_SCOPE_ADC_DMA_CHANNEL;
+  scope_dma.Init.Direction = DMA_PERIPH_TO_MEMORY;
+  scope_dma.Init.PeriphInc = DMA_PINC_DISABLE;
+  scope_dma.Init.MemInc = DMA_MINC_ENABLE;
+  scope_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+  scope_dma.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+  scope_dma.Init.Mode = DMA_CIRCULAR;
+  scope_dma.Init.Priority = DMA_PRIORITY_HIGH;
+  scope_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+  if (HAL_DMA_Init(&scope_dma) != HAL_OK) {
+    Error_Handler();
+  }
+
+  __HAL_LINKDMA(hadc, DMA_Handle, scope_dma);
+
+  HAL_NVIC_SetPriority(APP_SCOPE_ADC_DMA_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(APP_SCOPE_ADC_DMA_IRQn);
+}
+
 /* 配置 TIM3 输入捕获所需 GPIO 和中断。 */
 void HAL_TIM_IC_MspInit(TIM_HandleTypeDef *htim) {
   GPIO_InitTypeDef gpio_init = {0};

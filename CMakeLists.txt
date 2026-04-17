@@ -18,7 +18,9 @@ set(PROJECT_SOURCES
     src/display/display.c
     src/display/display_lcd.c
     src/display/display_uart.c
+    src/scope/scope_render_logic.c
     src/system/main.c
+    src/signal_capture/signal_capture_adc.c
     src/signal_gen/signal_gen.c
     src/signal_gen/signal_gen_logic.c
     src/signal_measure/signal_measure.c
@@ -31,6 +33,8 @@ set(PROJECT_SOURCES
     src/ui/ui_cmd.c
     src/ui/ui_ctrl.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c

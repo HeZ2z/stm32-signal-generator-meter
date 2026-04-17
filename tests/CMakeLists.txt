@@ -37,3 +37,11 @@ add_executable(test_signal_measure_logic
 target_compile_definitions(test_signal_measure_logic PRIVATE HOST_TEST)
 target_include_directories(test_signal_measure_logic PRIVATE ../include ../src)
 add_test(NAME test_signal_measure_logic COMMAND test_signal_measure_logic)
+
+add_executable(test_scope_render_logic
+  test_scope_render_logic.c
+  ../src/scope/scope_render_logic.c
+)
+target_compile_definitions(test_scope_render_logic PRIVATE HOST_TEST)
+target_include_directories(test_scope_render_logic PRIVATE ../include ../src)
+add_test(NAME test_scope_render_logic COMMAND test_scope_render_logic)
