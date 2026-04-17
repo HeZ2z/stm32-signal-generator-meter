@@ -19,4 +19,5 @@
 - 做出路线选择时，先更新 `decision-log.md`
 - 每完成一个阶段，更新 `verification-log.md`
 - 进入演示收尾阶段后，同步更新 `error-analysis.md` 与 `demo-script.md`
+- 进入 `M8-M11` 后，优先保证 `README.md`、`roadmap.md`、`pin-plan.md` 和 `decision-log.md` 表述一致
 - 如果 README 中的项目描述发生变化，同步检查这里的文档是否仍然一致
