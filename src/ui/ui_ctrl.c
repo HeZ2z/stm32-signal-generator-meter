@@ -125,19 +125,19 @@ static active_control_t hit_control(const touch_point_t *point) {
     return ACTIVE_NONE;
   }
 
-  if (point_in_rect(point, (rect_t){22U, 202U, 106U, 246U})) {
+  if (point_in_rect(point, (rect_t){22U, 224U, 94U, 254U})) {
     return ACTIVE_FREQ_M1000;
   }
-  if (point_in_rect(point, (rect_t){110U, 202U, 194U, 246U})) {
+  if (point_in_rect(point, (rect_t){98U, 224U, 170U, 254U})) {
     return ACTIVE_FREQ_P1000;
   }
-  if (point_in_rect(point, (rect_t){198U, 202U, 282U, 246U})) {
+  if (point_in_rect(point, (rect_t){174U, 224U, 246U, 254U})) {
     return ACTIVE_DUTY_M5;
   }
-  if (point_in_rect(point, (rect_t){286U, 202U, 370U, 246U})) {
+  if (point_in_rect(point, (rect_t){250U, 224U, 322U, 254U})) {
     return ACTIVE_DUTY_P5;
   }
-  if (point_in_rect(point, (rect_t){374U, 202U, 458U, 246U})) {
+  if (point_in_rect(point, (rect_t){356U, 224U, 454U, 254U})) {
     return ACTIVE_RESET;
   }
   if (point_in_rect(point, (rect_t){360U, 14U, 458U, 42U})) {
@@ -219,11 +219,6 @@ static void handle_ui_command(const ui_cmd_t *cmd) {
 static void handle_touch_event(const touch_event_t *event) {
   view.last_touch = event->point;
   ui_sync_touch_runtime();
-  (void)snprintf(view.footer,
-                 sizeof(view.footer),
-                 "TOUCH X=%u Y=%u",
-                 event->point.x,
-                 event->point.y);
 
   switch (event->kind) {
     case TOUCH_EVENT_DOWN:

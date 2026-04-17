@@ -7,6 +7,8 @@
 #include <string.h>
 
 #include "board/board_config.h"
+#include "scope/scope_render_logic.h"
+#include "signal_capture/signal_capture_adc.h"
 #include "touch/touch.h"
 #include "ui/ui_ctrl.h"
 
@@ -40,11 +42,19 @@ static uint32_t lcd_scene_started_ms;
 static uint32_t lcd_last_dynamic_refresh_ms;
 
 #define LCD_SPLASH_DURATION_MS 1800U
-#define LCD_DYNAMIC_REFRESH_MS 120U
+#define LCD_DYNAMIC_REFRESH_MS APP_SCOPE_LCD_REFRESH_MS
 #define LCD_MORE_X 72U
 #define LCD_MORE_Y 56U
 #define LCD_MORE_WIDTH 336U
 #define LCD_MORE_HEIGHT 144U
+#define LCD_SCOPE_X 18U
+#define LCD_SCOPE_Y 64U
+#define LCD_SCOPE_WIDTH 444U
+#define LCD_SCOPE_HEIGHT 142U
+#define LCD_SCOPE_PLOT_X 28U
+#define LCD_SCOPE_PLOT_Y 74U
+#define LCD_SCOPE_PLOT_WIDTH 424U
+#define LCD_SCOPE_PLOT_HEIGHT 122U
 
 typedef struct {
   bool valid;
@@ -62,6 +72,13 @@ typedef struct {
 } lcd_ui_snapshot_t;
 
 static lcd_ui_snapshot_t lcd_ui_last;
+static scope_render_trace_t lcd_scope_last_trace;
+static bool lcd_scope_last_trace_valid;
+static bool lcd_scope_last_no_signal;
+static scope_square_wave_estimate_t lcd_input_last_estimate;
+static uint32_t lcd_input_last_estimate_ms;
+static uint32_t lcd_input_last_estimate_config_hz;
+static uint8_t lcd_input_estimate_miss_count;
 
 /* Apollo F429 将 LTDC 单层帧缓冲直接映射到外部 SDRAM 首地址。 */
 static uint16_t *const framebuffer = (uint16_t *)APP_LCD_FRAMEBUFFER_ADDRESS;
@@ -240,6 +257,31 @@ static void lcd_draw_vline(uint16_t x, uint16_t y, uint16_t height, uint16_t col
   lcd_fill_rect(x, y, 1U, height, color);
 }
 
+static void lcd_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color) {
+  int32_t dx = (int32_t)x1 - (int32_t)x0;
+  int32_t sx = x0 < x1 ? 1 : -1;
+  int32_t dy = -((int32_t)y1 - (int32_t)y0 < 0 ? -((int32_t)y1 - (int32_t)y0) : ((int32_t)y1 - (int32_t)y0));
+  int32_t sy = y0 < y1 ? 1 : -1;
+  int32_t err = dx + dy;
+
+  while (1) {
+    lcd_plot(x0, y0, color);
+    if (x0 == x1 && y0 == y1) {
+      break;
+    }
+
+    int32_t e2 = err * 2;
+    if (e2 >= dy) {
+      err += dy;
+      x0 = (uint16_t)((int32_t)x0 + sx);
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 = (uint16_t)((int32_t)y0 + sy);
+    }
+  }
+}
+
 static void lcd_draw_button(uint16_t x,
                             uint16_t y,
                             uint16_t width,
@@ -250,10 +292,13 @@ static void lcd_draw_button(uint16_t x,
   uint16_t fill = highlighted ? rgb565(74, 48, 8) : rgb565(17, 42, 82);
   uint16_t text = rgb565(234, 246, 255);
   uint16_t glow = highlighted ? rgb565(255, 176, 72) : rgb565(48, 92, 148);
+  uint16_t text_x = (uint16_t)(x + (width >= 84U ? 12U : 8U));
+  uint16_t text_y = (uint16_t)(y + (height >= 40U ? 12U : 9U));
+  uint8_t scale = width >= 84U ? 2U : 1U;
 
   lcd_fill_rect((uint16_t)(x - 2U), (uint16_t)(y - 2U), (uint16_t)(width + 4U), (uint16_t)(height + 4U), glow);
   lcd_draw_box(x, y, width, height, border, fill);
-  lcd_draw_string((uint16_t)(x + 12U), (uint16_t)(y + 12U), label, text, fill, 2);
+  lcd_draw_string(text_x, text_y, label, text, fill, scale);
 }
 
 typedef struct {
@@ -266,11 +311,11 @@ typedef struct {
 } lcd_button_def_t;
 
 static const lcd_button_def_t lcd_buttons[] = {
-    {UI_HIGHLIGHT_FREQ_DOWN, 22U, 202U, 84U, 44U, "F-1K"},
-    {UI_HIGHLIGHT_FREQ_UP, 110U, 202U, 84U, 44U, "F+1K"},
-    {UI_HIGHLIGHT_DUTY_DOWN, 198U, 202U, 84U, 44U, "D-5"},
-    {UI_HIGHLIGHT_DUTY_UP, 286U, 202U, 84U, 44U, "D+5"},
-    {UI_HIGHLIGHT_RESET, 374U, 202U, 84U, 44U, "RESET"},
+    {UI_HIGHLIGHT_FREQ_DOWN, 22U, 224U, 72U, 30U, "F-1K"},
+    {UI_HIGHLIGHT_FREQ_UP, 98U, 224U, 72U, 30U, "F+1K"},
+    {UI_HIGHLIGHT_DUTY_DOWN, 174U, 224U, 72U, 30U, "D-5"},
+    {UI_HIGHLIGHT_DUTY_UP, 250U, 224U, 72U, 30U, "D+5"},
+    {UI_HIGHLIGHT_RESET, 356U, 224U, 98U, 30U, "RESET"},
     {UI_HIGHLIGHT_HELP, 360U, 14U, 98U, 28U, "MORE"},
 };
 
@@ -283,6 +328,11 @@ static const lcd_button_def_t *lcd_find_button(ui_highlight_t id) {
 
   return NULL;
 }
+
+static void lcd_draw_scope_trace(const scope_capture_snapshot_t *snapshot);
+static void lcd_draw_scope_static_plot_frame(void);
+static void lcd_restore_scope_columns(uint16_t x_begin, uint16_t x_end);
+static uint32_t lcd_scope_adc_sample_rate_hz(void);
 
 /* 仅重绘发生状态变化的单个按钮，避免整页按钮区重复闪烁。 */
 static void lcd_redraw_button(ui_highlight_t id, bool highlighted) {
@@ -344,44 +394,35 @@ static void lcd_fill_test_pattern(void) {
   lcd_fill_rect(228, 124, 24, 24, rgb565(0, 0, 0));
 }
 
-/* 将业务配置和测量结果格式化成 LCD 页面上的四行文本。 */
+/* 将当前 PWM 设定和 ADC 示波状态格式化成 LCD 页面文本。 */
 static void lcd_format_status(lcd_status_view_t *view,
                               const signal_gen_config_t *config,
                               const signal_measure_result_t *measurement) {
-  int32_t freq_error = 0;
-  int32_t period_error = 0;
-  int32_t duty_error = 0;
+  const scope_capture_snapshot_t *snapshot = signal_capture_adc_latest();
+  (void)measurement;
 
-  (void)snprintf(view->header, sizeof(view->header), "SIGNAL STATUS");
+  (void)snprintf(view->header, sizeof(view->header), "REAL-TIME WAVEFORM");
   (void)snprintf(view->set_line,
                  sizeof(view->set_line),
-                 "SET  F=%" PRIu32 "HZ  D=%u%%",
+                 "SET F=%" PRIu32 "HZ D=%u%%",
                  config->frequency_hz,
                  config->duty_percent);
 
-  if (measurement != NULL && measurement->valid) {
-    freq_error = (int32_t)measurement->frequency_hz - (int32_t)config->frequency_hz;
-    period_error = (int32_t)measurement->period_us -
-                   (int32_t)(1000000UL / config->frequency_hz);
-    duty_error = (int32_t)measurement->duty_percent - (int32_t)config->duty_percent;
-
+  if (snapshot != NULL && snapshot->valid) {
     (void)snprintf(view->meas_line,
                    sizeof(view->meas_line),
-                   "MEAS F=%" PRIu32 "HZ  P=%" PRIu32 "US  D=%u%%",
-                   measurement->frequency_hz,
-                   measurement->period_us,
-                   measurement->duty_percent);
+                   "ADC MIN=%u MAX=%u AVG=%u",
+                   snapshot->min_raw,
+                   snapshot->max_raw,
+                   snapshot->mean_raw);
     (void)snprintf(view->err_line,
                    sizeof(view->err_line),
-                   "ERR  DF=%" PRId32 "  DT=%" PRId32 "  DD=%" PRId32,
-                   freq_error,
-                   period_error,
-                   duty_error);
+                   "SCOPE READY  PB6 -> PA0");
     return;
   }
 
-  (void)snprintf(view->meas_line, sizeof(view->meas_line), "MEAS NO-SIGNAL");
-  (void)snprintf(view->err_line, sizeof(view->err_line), "CHECK PB6-PA7 LOOPBACK");
+  (void)snprintf(view->meas_line, sizeof(view->meas_line), "ADC NO-SIGNAL");
+  (void)snprintf(view->err_line, sizeof(view->err_line), "CHECK PB6-PA0 LOOPBACK");
 }
 
 static void lcd_draw_card(uint16_t x,
@@ -426,21 +467,13 @@ static void lcd_draw_control_static(const ui_ctrl_view_t *ui) {
   uint16_t chrome = rgb565(20, 48, 86);
   uint16_t panel = rgb565(14, 28, 56);
   uint16_t border = rgb565(54, 122, 178);
-  uint16_t accent_freq = rgb565(85, 210, 255);
-  uint16_t accent_duty = rgb565(255, 182, 86);
-  uint16_t text = rgb565(236, 246, 255);
 
   lcd_fill_rect(0, 0, APP_LCD_WIDTH, APP_LCD_HEIGHT, bg);
   lcd_fill_rect(0, 0, APP_LCD_WIDTH, 12U, chrome);
   lcd_fill_rect(0, (uint16_t)(APP_LCD_HEIGHT - 10U), APP_LCD_WIDTH, 10U, chrome);
-  lcd_fill_rect(18, 14, 330, 30, chrome);
   lcd_draw_hline(18, 46, 444, border);
-
-  lcd_draw_card(18, 52, 212, 70, border, panel, accent_freq);
-  lcd_draw_card(250, 52, 212, 70, border, panel, accent_duty);
-  lcd_draw_card(18, 132, 444, 54, border, panel, rgb565(94, 138, 192));
-
-  lcd_draw_string(26, 22, "TOUCH READY", text, chrome, 1);
+  lcd_draw_card(LCD_SCOPE_X, LCD_SCOPE_Y, LCD_SCOPE_WIDTH, LCD_SCOPE_HEIGHT, border, panel, rgb565(85, 210, 255));
+  lcd_draw_scope_static_plot_frame();
   for (size_t i = 0; i < (sizeof(lcd_buttons) / sizeof(lcd_buttons[0])); ++i) {
     lcd_draw_button(lcd_buttons[i].x,
                     lcd_buttons[i].y,
@@ -451,53 +484,160 @@ static void lcd_draw_control_static(const ui_ctrl_view_t *ui) {
   }
 }
 
-static void lcd_draw_touch_status(const char *line) {
-  uint16_t chrome = rgb565(20, 48, 86);
-  uint16_t text = rgb565(236, 246, 255);
-
-  lcd_fill_rect(24, 18, 320, 20, chrome);
-  lcd_draw_string(24, 18, line, text, chrome, 1);
-}
-
-static void lcd_draw_frequency_value(uint32_t frequency_hz) {
-  uint16_t panel = rgb565(14, 28, 56);
-  uint16_t text = rgb565(236, 246, 255);
-  uint16_t freq = rgb565(85, 210, 255);
-  char buffer[24];
-
-  lcd_fill_rect(26, 62, 192, 14, panel);
-  lcd_draw_string(28, 62, "FREQUENCY", text, panel, 2);
-  lcd_fill_rect(28, 88, 190, 28, panel);
-  (void)snprintf(buffer, sizeof(buffer), "%luHZ", frequency_hz);
-  lcd_draw_string(30, 88, buffer, freq, panel, 3);
-}
-
-static void lcd_draw_duty_value(uint8_t duty_percent) {
-  uint16_t panel = rgb565(14, 28, 56);
-  uint16_t text = rgb565(236, 246, 255);
-  uint16_t duty = rgb565(255, 182, 86);
-  char buffer[24];
-
-  lcd_fill_rect(258, 62, 192, 14, panel);
-  lcd_draw_string(260, 62, "DUTY", text, panel, 2);
-  lcd_fill_rect(260, 88, 190, 28, panel);
-  (void)snprintf(buffer, sizeof(buffer), "%u%%", duty_percent);
-  lcd_draw_string(262, 88, buffer, duty, panel, 3);
-}
-
-static void lcd_draw_measure_line(uint16_t y, const char *text_line, uint16_t color) {
-  uint16_t panel = rgb565(14, 28, 56);
-
-  lcd_fill_rect(28, y, 420, 10, panel);
-  lcd_draw_string(28, y, text_line, color, panel, 1);
-}
-
-static void lcd_draw_footer(const char *text_line) {
+static void lcd_draw_footer(const ui_ctrl_view_t *ui) {
   uint16_t warn = rgb565(255, 208, 116);
+  uint16_t text = rgb565(236, 246, 255);
   uint16_t footer_bg = rgb565(10, 22, 46);
+  char touch_line[40];
 
-  lcd_fill_rect(18, 252, 444, 10, footer_bg);
-  lcd_draw_string(22, 252, text_line, warn, footer_bg, 1);
+  if (!ui->touch_ready) {
+    (void)snprintf(touch_line, sizeof(touch_line), "TOUCH INIT...");
+  } else if (ui->last_touch.x != 0U || ui->last_touch.y != 0U) {
+    (void)snprintf(touch_line, sizeof(touch_line), "TOUCH X=%u Y=%u", ui->last_touch.x, ui->last_touch.y);
+  } else {
+    (void)snprintf(touch_line, sizeof(touch_line), "TOUCH READY");
+  }
+
+  lcd_fill_rect(18, 260, 444, 10, footer_bg);
+  lcd_draw_string(22, 260, touch_line, text, footer_bg, 1);
+  lcd_draw_string(250, 260, ui->footer, warn, footer_bg, 1);
+}
+
+static uint32_t lcd_scope_adc_sample_rate_hz(void) {
+  uint32_t pclk2_hz = HAL_RCC_GetPCLK2Freq();
+
+  return pclk2_hz / 4U / 96U;
+}
+
+static void lcd_draw_info_cards(const signal_gen_config_t *config,
+                                const signal_measure_result_t *measurement,
+                                const scope_capture_snapshot_t *snapshot) {
+  uint16_t panel = rgb565(7, 16, 34);
+  uint16_t border = rgb565(54, 122, 178);
+  uint16_t input_accent = rgb565(112, 232, 162);
+  uint16_t output_accent = rgb565(255, 182, 86);
+  uint16_t text = rgb565(236, 246, 255);
+  uint16_t warn = rgb565(255, 208, 116);
+  char line[40];
+  scope_square_wave_estimate_t estimate = {0};
+  uint32_t min_frequency_hz = 0U;
+  uint32_t max_frequency_hz = 0U;
+  uint32_t adc_sample_rate_hz = lcd_scope_adc_sample_rate_hz();
+  uint32_t now_ms = HAL_GetTick();
+  bool duty_frequency_window_valid = scope_square_wave_frequency_window(APP_SCOPE_SAMPLE_COUNT,
+                                                                        adc_sample_rate_hz,
+                                                                        &min_frequency_hz,
+                                                                        &max_frequency_hz);
+  bool within_duty_window = duty_frequency_window_valid &&
+                            config->frequency_hz >= min_frequency_hz &&
+                            config->frequency_hz <= max_frequency_hz;
+  bool square_signal_present = snapshot != NULL && snapshot->valid &&
+                               scope_square_wave_signal_present(snapshot->samples,
+                                                                snapshot->sample_count,
+                                                                APP_SCOPE_SIGNAL_FLAT_THRESHOLD,
+                                                                APP_SCOPE_SIGNAL_MIN_SPAN,
+                                                                APP_SCOPE_SQUARE_LOW_LEVEL_MAX,
+                                                                APP_SCOPE_SQUARE_HIGH_LEVEL_MIN);
+  bool can_hold_last_estimate = lcd_input_last_estimate.valid &&
+                                lcd_input_last_estimate_config_hz == config->frequency_hz &&
+                                (now_ms - lcd_input_last_estimate_ms) <= APP_SCOPE_ESTIMATE_HOLD_MS;
+  bool can_tolerate_estimate_miss = lcd_input_last_estimate.valid &&
+                                    lcd_input_last_estimate_config_hz == config->frequency_hz &&
+                                    lcd_input_estimate_miss_count < APP_SCOPE_ESTIMATE_MISS_MAX;
+  (void)measurement;
+
+  if (square_signal_present && within_duty_window) {
+    (void)scope_estimate_square_wave(snapshot->samples,
+                                     snapshot->sample_count,
+                                     APP_SCOPE_SIGNAL_FLAT_THRESHOLD,
+                                     adc_sample_rate_hz,
+                                     &estimate);
+    if (estimate.valid) {
+      lcd_input_last_estimate = estimate;
+      lcd_input_last_estimate_ms = now_ms;
+      lcd_input_last_estimate_config_hz = config->frequency_hz;
+      lcd_input_estimate_miss_count = 0U;
+    } else if (lcd_input_last_estimate.valid &&
+               lcd_input_last_estimate_config_hz == config->frequency_hz &&
+               lcd_input_estimate_miss_count < 0xFFU) {
+      ++lcd_input_estimate_miss_count;
+    }
+  } else {
+    lcd_input_estimate_miss_count = 0U;
+  }
+
+  lcd_draw_card(18, 14, 156, 28, border, panel, input_accent);
+  lcd_draw_card(182, 14, 156, 28, border, panel, output_accent);
+
+  lcd_draw_string(26, 20, "INPUT", text, panel, 1);
+  lcd_draw_string(68, 20, "PA0 ADC1", input_accent, panel, 1);
+  if (estimate.valid) {
+    (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%", estimate.frequency_hz, estimate.duty_percent);
+    lcd_draw_string(26, 30, line, text, panel, 1);
+  } else if (can_hold_last_estimate || can_tolerate_estimate_miss) {
+    (void)snprintf(line,
+                   sizeof(line),
+                   "F=%luHZ D=%u%%",
+                   lcd_input_last_estimate.frequency_hz,
+                   lcd_input_last_estimate.duty_percent);
+    lcd_draw_string(26, 30, line, text, panel, 1);
+  } else if (square_signal_present) {
+    if (within_duty_window) {
+      lcd_draw_string(26, 30, "F=ADC LIVE D=--", warn, panel, 1);
+    } else {
+      (void)snprintf(line, sizeof(line), "F=%luHZ D=--", config->frequency_hz);
+      lcd_draw_string(26, 30, line, warn, panel, 1);
+    }
+  } else {
+    lcd_draw_string(26, 30, "NO INPUT", warn, panel, 1);
+  }
+
+  lcd_draw_string(190, 20, "OUTPUT", text, panel, 1);
+  lcd_draw_string(238, 20, "PB6 TIM4", output_accent, panel, 1);
+  (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%", config->frequency_hz, config->duty_percent);
+  lcd_draw_string(190, 30, line, text, panel, 1);
+}
+
+static void lcd_draw_scope_static_plot_frame(void) {
+  uint16_t bg = rgb565(10, 20, 42);
+  uint16_t grid = rgb565(32, 66, 108);
+
+  lcd_fill_rect(LCD_SCOPE_PLOT_X, LCD_SCOPE_PLOT_Y, LCD_SCOPE_PLOT_WIDTH, LCD_SCOPE_PLOT_HEIGHT, bg);
+  lcd_draw_box(LCD_SCOPE_PLOT_X, LCD_SCOPE_PLOT_Y, LCD_SCOPE_PLOT_WIDTH, LCD_SCOPE_PLOT_HEIGHT, grid, bg);
+  lcd_draw_hline(LCD_SCOPE_PLOT_X,
+                 (uint16_t)(LCD_SCOPE_PLOT_Y + (LCD_SCOPE_PLOT_HEIGHT / 2U)),
+                 LCD_SCOPE_PLOT_WIDTH,
+                 grid);
+  for (uint16_t x = (uint16_t)(LCD_SCOPE_PLOT_X + 53U); x < (LCD_SCOPE_PLOT_X + LCD_SCOPE_PLOT_WIDTH); x = (uint16_t)(x + 53U)) {
+    lcd_draw_vline(x, LCD_SCOPE_PLOT_Y, LCD_SCOPE_PLOT_HEIGHT, grid);
+  }
+}
+
+static void lcd_restore_scope_columns(uint16_t x_begin, uint16_t x_end) {
+  uint16_t bg = rgb565(10, 20, 42);
+  uint16_t grid = rgb565(32, 66, 108);
+  uint16_t start = x_begin < LCD_SCOPE_PLOT_X ? LCD_SCOPE_PLOT_X : x_begin;
+  uint16_t end = x_end >= (LCD_SCOPE_PLOT_X + LCD_SCOPE_PLOT_WIDTH) ?
+                 (uint16_t)(LCD_SCOPE_PLOT_X + LCD_SCOPE_PLOT_WIDTH - 1U) : x_end;
+  uint16_t width;
+
+  if (end < start) {
+    return;
+  }
+
+  width = (uint16_t)(end - start + 1U);
+  lcd_fill_rect(start, LCD_SCOPE_PLOT_Y, width, LCD_SCOPE_PLOT_HEIGHT, bg);
+  lcd_draw_hline(start,
+                 (uint16_t)(LCD_SCOPE_PLOT_Y + (LCD_SCOPE_PLOT_HEIGHT / 2U)),
+                 width,
+                 grid);
+  for (uint16_t x = start; x <= end; ++x) {
+    if (x == LCD_SCOPE_PLOT_X ||
+        x == (uint16_t)(LCD_SCOPE_PLOT_X + LCD_SCOPE_PLOT_WIDTH - 1U) ||
+        ((uint16_t)(x - LCD_SCOPE_PLOT_X) % 53U) == 0U) {
+      lcd_draw_vline(x, LCD_SCOPE_PLOT_Y, LCD_SCOPE_PLOT_HEIGHT, grid);
+    }
+  }
 }
 
 static void lcd_draw_more_overlay(void) {
@@ -517,23 +657,22 @@ static void lcd_draw_more_overlay(void) {
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U), (uint16_t)(LCD_MORE_Y + 80U), "METER", link, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U), (uint16_t)(LCD_MORE_Y + 98U), "BOARD APOLLO STM32F429IGT6", text, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U), (uint16_t)(LCD_MORE_Y + 112U), "LCD ALIENTEK 4342 RGBLCD + GT9147", text, panel, 1);
-  lcd_draw_string((uint16_t)(LCD_MORE_X + 16U), (uint16_t)(LCD_MORE_Y + 126U), "LOOP PB6 TIM4 CH1 -> PA7 TIM3 CH2", text, panel, 1);
+  lcd_draw_string((uint16_t)(LCD_MORE_X + 16U), (uint16_t)(LCD_MORE_Y + 126U), "SCOPE PB6 TIM4 CH1 -> PA0 ADC1 IN0", text, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U), (uint16_t)(LCD_MORE_Y + 140U), "TAP MORE OR BLANK AREA TO CLOSE", accent, panel, 1);
 }
 
 static void lcd_restore_more_overlay(const ui_ctrl_view_t *ui,
-                                     const lcd_status_view_t *status_view) {
+                                     const lcd_status_view_t *status_view,
+                                     const signal_measure_result_t *measurement) {
   uint16_t bg = rgb565(7, 16, 34);
   uint16_t border = rgb565(54, 122, 178);
   uint16_t panel = rgb565(14, 28, 56);
-  uint16_t accent_freq = rgb565(85, 210, 255);
-  uint16_t accent_duty = rgb565(255, 182, 86);
+  (void)status_view;
 
   lcd_fill_rect(LCD_MORE_X, LCD_MORE_Y, LCD_MORE_WIDTH, LCD_MORE_HEIGHT, bg);
   lcd_draw_hline(18, 46, 444, border);
-  lcd_draw_card(18, 52, 212, 70, border, panel, accent_freq);
-  lcd_draw_card(250, 52, 212, 70, border, panel, accent_duty);
-  lcd_draw_card(18, 132, 444, 54, border, panel, rgb565(94, 138, 192));
+  lcd_draw_card(LCD_SCOPE_X, LCD_SCOPE_Y, LCD_SCOPE_WIDTH, LCD_SCOPE_HEIGHT, border, panel, rgb565(85, 210, 255));
+  lcd_draw_scope_static_plot_frame();
 
   for (size_t i = 0; i < (sizeof(lcd_buttons) / sizeof(lcd_buttons[0])); ++i) {
     lcd_draw_button(lcd_buttons[i].x,
@@ -544,26 +683,99 @@ static void lcd_restore_more_overlay(const ui_ctrl_view_t *ui,
                     ui->highlight == lcd_buttons[i].id);
   }
 
-  lcd_draw_frequency_value(ui->pending_config.frequency_hz);
-  lcd_draw_duty_value(ui->pending_config.duty_percent);
-  lcd_draw_measure_line(142, status_view->set_line, rgb565(236, 246, 255));
-  lcd_draw_measure_line(156, status_view->meas_line, rgb565(112, 232, 162));
-  lcd_draw_measure_line(170, status_view->err_line, rgb565(255, 208, 116));
+  lcd_draw_info_cards(&ui->pending_config, measurement, signal_capture_adc_latest());
+  lcd_draw_scope_trace(signal_capture_adc_latest());
+}
+
+static void lcd_draw_scope_trace(const scope_capture_snapshot_t *snapshot) {
+  scope_render_trace_t trace = {0};
+  uint16_t trace_color = rgb565(112, 232, 162);
+  uint16_t warn = rgb565(255, 208, 116);
+  char label[32];
+  bool no_signal = false;
+
+  if (snapshot == NULL || !snapshot->valid ||
+      !scope_render_build_trace(snapshot->samples,
+                                snapshot->sample_count,
+                                LCD_SCOPE_PLOT_HEIGHT,
+                                APP_SCOPE_SIGNAL_FLAT_THRESHOLD,
+                                &trace) ||
+      trace.flat_signal) {
+    no_signal = true;
+  }
+
+  if (no_signal) {
+    if (!lcd_scope_last_no_signal) {
+      lcd_draw_scope_static_plot_frame();
+    }
+    lcd_draw_string((uint16_t)(LCD_SCOPE_PLOT_X + 86U),
+                    (uint16_t)(LCD_SCOPE_PLOT_Y + 36U),
+                    "NO SIGNAL ON PA0",
+                    warn,
+                    rgb565(10, 20, 42),
+                    2);
+    lcd_scope_last_trace_valid = false;
+    lcd_scope_last_no_signal = true;
+    return;
+  }
+
+  if (!lcd_scope_last_trace_valid || lcd_scope_last_no_signal) {
+    lcd_draw_scope_static_plot_frame();
+  } else {
+    uint16_t first_changed = 0U;
+    uint16_t last_changed = 0U;
+    bool changed = false;
+
+    for (uint16_t i = 0; i < trace.point_count; ++i) {
+      if (i >= lcd_scope_last_trace.point_count ||
+          lcd_scope_last_trace.y_points[i] != trace.y_points[i]) {
+        if (!changed) {
+          first_changed = i;
+          changed = true;
+        }
+        last_changed = i;
+      }
+    }
+
+    if (changed) {
+      uint16_t x_begin = (uint16_t)(LCD_SCOPE_PLOT_X +
+                        (((uint32_t)first_changed * (LCD_SCOPE_PLOT_WIDTH - 1U)) / (trace.point_count - 1U)));
+      uint16_t x_end = (uint16_t)(LCD_SCOPE_PLOT_X +
+                      (((uint32_t)last_changed * (LCD_SCOPE_PLOT_WIDTH - 1U)) / (trace.point_count - 1U)));
+      x_begin = x_begin > (LCD_SCOPE_PLOT_X + 2U) ? (uint16_t)(x_begin - 2U) : LCD_SCOPE_PLOT_X;
+      x_end = (uint16_t)(x_end + 2U);
+      lcd_restore_scope_columns(x_begin, x_end);
+    }
+  }
+
+  for (uint16_t i = 1; i < trace.point_count; ++i) {
+    uint16_t x0 = (uint16_t)(LCD_SCOPE_PLOT_X + (((uint32_t)(i - 1U) * (LCD_SCOPE_PLOT_WIDTH - 1U)) / (trace.point_count - 1U)));
+    uint16_t x1 = (uint16_t)(LCD_SCOPE_PLOT_X + (((uint32_t)i * (LCD_SCOPE_PLOT_WIDTH - 1U)) / (trace.point_count - 1U)));
+    uint16_t y0 = (uint16_t)(LCD_SCOPE_PLOT_Y + trace.y_points[i - 1U]);
+    uint16_t y1 = (uint16_t)(LCD_SCOPE_PLOT_Y + trace.y_points[i]);
+    lcd_draw_line(x0, y0, x1, y1, trace_color);
+  }
+
+  (void)snprintf(label, sizeof(label), "N=%u", trace.point_count);
+  lcd_draw_string((uint16_t)(LCD_SCOPE_PLOT_X + LCD_SCOPE_PLOT_WIDTH - 44U),
+                  (uint16_t)(LCD_SCOPE_PLOT_Y + 4U),
+                  label,
+                  rgb565(236, 246, 255),
+                  rgb565(10, 20, 42),
+                  1);
+  lcd_scope_last_trace = trace;
+  lcd_scope_last_trace_valid = true;
+  lcd_scope_last_no_signal = false;
 }
 
 static void lcd_draw_control_dynamic(const ui_ctrl_view_t *ui,
                                      const lcd_status_view_t *status_view) {
-  uint16_t text = rgb565(236, 246, 255);
-  uint16_t ok = rgb565(112, 232, 162);
-  uint16_t warn = rgb565(255, 208, 116);
-
-  lcd_draw_touch_status(status_view->touch_line);
-  lcd_draw_frequency_value(ui->pending_config.frequency_hz);
-  lcd_draw_duty_value(ui->pending_config.duty_percent);
-  lcd_draw_measure_line(142, status_view->set_line, text);
-  lcd_draw_measure_line(156, status_view->meas_line, ok);
-  lcd_draw_measure_line(170, status_view->err_line, warn);
-  lcd_draw_footer(ui->footer);
+  const scope_capture_snapshot_t *snapshot = signal_capture_adc_latest();
+  const signal_measure_result_t *measurement = signal_measure_latest();
+  (void)status_view;
+  lcd_draw_scope_trace(snapshot);
+  lcd_draw_info_cards(&ui->pending_config, measurement, snapshot);
+  lcd_draw_footer(ui);
 }
 
 static void lcd_render_ui(const ui_ctrl_view_t *ui,
@@ -572,12 +784,17 @@ static void lcd_render_ui(const ui_ctrl_view_t *ui,
   lcd_status_view_t status_view = {0};
 
   lcd_format_status(&status_view, config, measurement);
-  (void)snprintf(status_view.touch_line,
-                 sizeof(status_view.touch_line),
-                 "TOUCH %s  X=%u  Y=%u",
-                 ui->touch_ready ? (ui->touch_pressed ? "DOWN" : "READY") : "FAIL",
-                 ui->last_touch.x,
-                 ui->last_touch.y);
+  if (!ui->touch_ready) {
+    (void)snprintf(status_view.touch_line, sizeof(status_view.touch_line), "%s", "TOUCH INIT...");
+  } else if (ui->last_touch.x != 0U || ui->last_touch.y != 0U) {
+    (void)snprintf(status_view.touch_line,
+                   sizeof(status_view.touch_line),
+                   "TOUCH X=%u Y=%u",
+                   ui->last_touch.x,
+                   ui->last_touch.y);
+  } else {
+    (void)snprintf(status_view.touch_line, sizeof(status_view.touch_line), "%s", "TOUCH READY");
+  }
   (void)snprintf(status_view.hint_line,
                  sizeof(status_view.hint_line),
                  "UART HELP / STATUS / FREQ / DUTY");
@@ -623,7 +840,7 @@ static void lcd_render_ui(const ui_ctrl_view_t *ui,
           lcd_redraw_button(UI_HIGHLIGHT_HELP, true);
           lcd_draw_more_overlay();
         } else {
-          lcd_restore_more_overlay(ui, &status_view);
+          lcd_restore_more_overlay(ui, &status_view, measurement);
           lcd_redraw_button(UI_HIGHLIGHT_HELP, false);
         }
         lcd_last_dynamic_refresh_ms = now;
@@ -632,31 +849,15 @@ static void lcd_render_ui(const ui_ctrl_view_t *ui,
         lcd_redraw_button(ui->highlight, true);
       }
 
-      if (touch_changed) {
-        lcd_draw_touch_status(status_view.touch_line);
+      if ((freq_changed || duty_changed || meas_changed || err_changed) && !overlay_open) {
+        lcd_draw_info_cards(&ui->pending_config, measurement, signal_capture_adc_latest());
       }
-      if (freq_changed && !overlay_open) {
-        lcd_draw_frequency_value(ui->pending_config.frequency_hz);
-      }
-      if (duty_changed && !overlay_open) {
-        lcd_draw_duty_value(ui->pending_config.duty_percent);
-      }
-      if (footer_changed) {
-        lcd_draw_footer(ui->footer);
+      if (footer_changed || touch_changed) {
+        lcd_draw_footer(ui);
       }
       if (allow_measure_refresh && !overlay_open) {
-        if (set_changed) {
-          lcd_draw_measure_line(142, status_view.set_line, rgb565(236, 246, 255));
-        }
-        if (meas_changed) {
-          lcd_draw_measure_line(156, status_view.meas_line, rgb565(112, 232, 162));
-        }
-        if (err_changed) {
-          lcd_draw_measure_line(170, status_view.err_line, rgb565(255, 208, 116));
-        }
-        if (set_changed || meas_changed || err_changed) {
-          lcd_last_dynamic_refresh_ms = now;
-        }
+        lcd_draw_scope_trace(signal_capture_adc_latest());
+        lcd_last_dynamic_refresh_ms = now;
       }
     }
 
@@ -837,6 +1038,10 @@ static void lcd_backlight_on(void) {
 void display_lcd_init(void) {
   lcd_ready = false;
   (void)memset(&lcd_ui_last, 0, sizeof(lcd_ui_last));
+  (void)memset(&lcd_input_last_estimate, 0, sizeof(lcd_input_last_estimate));
+  lcd_input_last_estimate_ms = 0U;
+  lcd_input_last_estimate_config_hz = 0U;
+  lcd_input_estimate_miss_count = 0U;
   lcd_scene = LCD_SCENE_SPLASH;
   lcd_scene_started_ms = 0U;
   lcd_last_dynamic_refresh_ms = 0U;

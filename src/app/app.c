@@ -4,6 +4,7 @@
 
 #include "display/display.h"
 #include "main.h"
+#include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen.h"
 #include "signal_measure/signal_measure.h"
 #include "touch/touch.h"
@@ -108,6 +109,9 @@ void app_init(void) {
     Error_Handler();
   }
 
+  signal_capture_adc_init();
+  display_write("init: adc scope ok\r\n");
+
   ui_ctrl_init();
   display_printf("init: touch %s\r\n", touch_runtime()->status);
   display_write("init: starting lcd\r\n");
@@ -138,6 +142,7 @@ void app_run_once(void) {
 
   ui_ctrl_poll();
   signal_measure_poll(now);
+  signal_capture_adc_poll(now);
 
   /* 状态输出频率故意低于主循环速度，避免串口和 LCD 被无意义刷屏。 */
   if ((now - last_status_ms) >= APP_STATUS_PERIOD_MS) {
