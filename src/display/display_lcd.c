@@ -433,14 +433,6 @@ static void lcd_draw_info_cards(const signal_gen_config_t *config,
                                    APP_SCOPE_SIGNAL_MIN_SPAN,
                                    APP_SCOPE_SQUARE_LOW_LEVEL_MAX,
                                    APP_SCOPE_SQUARE_HIGH_LEVEL_MIN);
-  bool can_hold_last_estimate =
-      lcd_input_last_estimate.valid &&
-      lcd_input_last_estimate_config_hz == config->frequency_hz &&
-      (now_ms - lcd_input_last_estimate_ms) <= APP_SCOPE_ESTIMATE_HOLD_MS;
-  bool can_tolerate_estimate_miss =
-      lcd_input_last_estimate.valid &&
-      lcd_input_last_estimate_config_hz == config->frequency_hz &&
-      lcd_input_estimate_miss_count < APP_SCOPE_ESTIMATE_MISS_MAX;
   (void)measurement;
 
   if (square_signal_present && within_duty_window) {
@@ -459,6 +451,9 @@ static void lcd_draw_info_cards(const signal_gen_config_t *config,
       ++lcd_input_estimate_miss_count;
     }
   } else {
+    lcd_input_last_estimate.valid = false;
+    lcd_input_last_estimate_ms = 0U;
+    lcd_input_last_estimate_config_hz = 0U;
     lcd_input_estimate_miss_count = 0U;
   }
 
@@ -467,17 +462,14 @@ static void lcd_draw_info_cards(const signal_gen_config_t *config,
 
   lcd_draw_string(26, 20, "INPUT", text, panel, 1);
   lcd_draw_string(68, 20, "PA0 ADC1", input_accent, panel, 1);
-  if (estimate.valid) {
-    (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%",
-                   (unsigned long)estimate.frequency_hz, estimate.duty_percent);
-    lcd_draw_string(26, 30, line, text, panel, 1);
-  } else if (can_hold_last_estimate || can_tolerate_estimate_miss) {
-    (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%",
-                   (unsigned long)lcd_input_last_estimate.frequency_hz,
-                   lcd_input_last_estimate.duty_percent);
-    lcd_draw_string(26, 30, line, text, panel, 1);
-  } else if (square_signal_present) {
-    if (within_duty_window) {
+  if (square_signal_present) {
+    if (lcd_input_last_estimate.valid &&
+        lcd_input_last_estimate_config_hz == config->frequency_hz) {
+      (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%",
+                     (unsigned long)lcd_input_last_estimate.frequency_hz,
+                     lcd_input_last_estimate.duty_percent);
+      lcd_draw_string(26, 30, line, text, panel, 1);
+    } else if (within_duty_window) {
       lcd_draw_string(26, 30, "F=ADC LIVE D=--", warn, panel, 1);
     } else {
       (void)snprintf(line, sizeof(line), "F=%luHZ D=--",
