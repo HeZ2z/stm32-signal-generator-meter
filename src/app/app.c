@@ -6,6 +6,7 @@
 #include "main.h"
 #include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "signal_measure/signal_measure.h"
 #include "touch/touch.h"
 #include "ui/ui_ctrl.h"
@@ -97,6 +98,7 @@ void app_init(void) {
   display_init();
   display_write("init: uart ok\r\n");
   signal_gen_init();
+  signal_gen_dac_init();
   display_write("init: pwm ok\r\n");
   signal_measure_init();
   display_write("init: measure ok\r\n");
@@ -143,6 +145,7 @@ void app_run_once(void) {
   ui_ctrl_poll();
   signal_measure_poll(now);
   signal_capture_adc_poll(now);
+  signal_gen_dac_poll(now);
 
   /* 状态输出频率故意低于主循环速度，避免串口和 LCD 被无意义刷屏。 */
   if ((now - last_status_ms) >= APP_STATUS_PERIOD_MS) {
