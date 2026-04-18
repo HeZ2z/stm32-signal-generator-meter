@@ -17,11 +17,14 @@ set(PROJECT_SOURCES
     src/app/app.c
     src/display/display.c
     src/display/display_lcd.c
+    src/display/lcd_prim.c
+    src/display/lcd_font.c
     src/display/display_uart.c
     src/scope/scope_render_logic.c
     src/system/main.c
     src/signal_capture/signal_capture_adc.c
     src/signal_gen/signal_gen.c
+    src/signal_gen/signal_gen_dac.c
     src/signal_gen/signal_gen_logic.c
     src/signal_measure/signal_measure.c
     src/signal_measure/signal_measure_logic.c
