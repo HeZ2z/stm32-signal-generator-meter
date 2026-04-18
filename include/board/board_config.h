@@ -131,4 +131,14 @@
 #define APP_TOUCH_INT_PIN GPIO_PIN_7
 #endif
 
+/* 共享的 APB1 定时器时钟计算。
+ * TIM4 (PWM) 和 TIM3 (测量) 均挂在 APB1 总线上，
+ * 当 PPRE1 != DIV1 时总线时钟翻倍。 */
+#ifndef HOST_TEST
+static inline uint32_t tim_apb1_clock_hz(void) {
+  uint32_t pclk = HAL_RCC_GetPCLK1Freq();
+  return ((RCC->CFGR & RCC_CFGR_PPRE1) == RCC_HCLK_DIV1) ? pclk : (pclk * 2U);
+}
+#endif
+
 #endif
