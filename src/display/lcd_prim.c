@@ -1,10 +1,10 @@
-#include "lcd_prim.h"
+#include "display/lcd_prim.h"
 
 #include <stdio.h>
 #include <string.h>
 
 #include "board/board_config.h"
-#include "lcd_font.h"
+#include "display/lcd_font.h"
 #include "ui/ui_ctrl.h"
 
 /* Apollo F429 将 LTDC 单层帧缓冲直接映射到外部 SDRAM 首地址。 */

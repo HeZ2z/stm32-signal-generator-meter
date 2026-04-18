@@ -7,8 +7,8 @@
 #include <string.h>
 
 #include "board/board_config.h"
-#include "lcd_font.h"
-#include "lcd_prim.h"
+#include "display/lcd_font.h"
+#include "display/lcd_prim.h"
 #include "scope/scope_render_logic.h"
 #include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen.h"

@@ -1,8 +1,8 @@
-#include "lcd_font.h"
+#include "display/lcd_font.h"
 
 #include <stddef.h>
 
-#include "lcd_prim.h"
+#include "display/lcd_prim.h"
 
 /* 5x7 迷你点阵字库，仅覆盖当前项目需要的字符子集。 */
 static const uint8_t *glyph_for_char(char ch) {
