@@ -23,6 +23,7 @@ set(PROJECT_SOURCES
     src/scope/scope_render_logic.c
     src/system/main.c
     src/signal_capture/signal_capture_adc.c
+    src/signal_capture/signal_capture_adc_logic.c
     src/signal_gen/signal_gen.c
     src/signal_gen/signal_gen_dac.c
     src/signal_gen/signal_gen_logic.c

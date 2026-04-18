@@ -1,4 +1,5 @@
 #include "signal_capture/signal_capture_adc.h"
+#include "signal_capture/signal_capture_adc_logic.h"
 
 #include <string.h>
 
@@ -9,32 +10,24 @@ static uint16_t scope_dma_buffer[APP_SCOPE_DMA_BUFFER_SIZE];
 static volatile scope_capture_snapshot_t latest_snapshot;
 
 static void update_snapshot_from_offset(uint16_t offset) {
-  uint32_t sum = 0U;
-  uint16_t min_raw = 0xFFFFU;
-  uint16_t max_raw = 0U;
   scope_capture_snapshot_t next = {0};
+  uint32_t sum = 0U;
 
   if ((offset + APP_SCOPE_SAMPLE_COUNT) > APP_SCOPE_DMA_BUFFER_SIZE) {
     return;
   }
 
   for (uint16_t i = 0; i < APP_SCOPE_SAMPLE_COUNT; ++i) {
-    uint16_t sample = scope_dma_buffer[offset + i];
-    next.samples[i] = sample;
-    if (sample < min_raw) {
-      min_raw = sample;
-    }
-    if (sample > max_raw) {
-      max_raw = sample;
-    }
-    sum += sample;
+    next.samples[i] = scope_dma_buffer[offset + i];
   }
-
   next.sample_count = APP_SCOPE_SAMPLE_COUNT;
-  next.min_raw = min_raw;
-  next.max_raw = max_raw;
+
+  if (!snapshot_bounds(next.samples, APP_SCOPE_SAMPLE_COUNT,
+                      &next.min_raw, &next.max_raw, &sum)) {
+    return;
+  }
   next.mean_raw = (uint16_t)(sum / APP_SCOPE_SAMPLE_COUNT);
-  next.flat_signal = (uint16_t)(max_raw - min_raw) < APP_SCOPE_SIGNAL_MIN_SPAN;
+  next.flat_signal = (uint16_t)(next.max_raw - next.min_raw) < APP_SCOPE_SIGNAL_MIN_SPAN;
   next.valid = !next.flat_signal;
   next.latest_update_ms = HAL_GetTick();
   latest_snapshot = next;

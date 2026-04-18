@@ -41,7 +41,16 @@ add_test(NAME test_signal_measure_logic COMMAND test_signal_measure_logic)
 add_executable(test_scope_render_logic
   test_scope_render_logic.c
   ../src/scope/scope_render_logic.c
+  ../src/signal_capture/signal_capture_adc_logic.c
 )
 target_compile_definitions(test_scope_render_logic PRIVATE HOST_TEST)
 target_include_directories(test_scope_render_logic PRIVATE ../include ../src)
 add_test(NAME test_scope_render_logic COMMAND test_scope_render_logic)
+
+add_executable(test_signal_capture_adc_logic
+  test_signal_capture_adc_logic.c
+  ../src/signal_capture/signal_capture_adc_logic.c
+)
+target_compile_definitions(test_signal_capture_adc_logic PRIVATE HOST_TEST)
+target_include_directories(test_signal_capture_adc_logic PRIVATE ../include ../src)
+add_test(NAME test_signal_capture_adc_logic COMMAND test_signal_capture_adc_logic)

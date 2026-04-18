@@ -1,35 +1,15 @@
 #include "scope/scope_render_logic.h"
+#include "signal_capture/signal_capture_adc_logic.h"
 
 #include <stddef.h>
 
+/* min/max/sum 扫描委托给 signal_capture_adc_logic.h 中共享的 snapshot_bounds()。 */
 static bool scope_signal_bounds(const uint16_t *samples,
                                 uint16_t sample_count,
                                 uint16_t *min_raw,
                                 uint16_t *max_raw,
                                 uint32_t *sum) {
-  uint16_t local_min = 0xFFFFU;
-  uint16_t local_max = 0U;
-  uint32_t local_sum = 0U;
-
-  if (samples == NULL || min_raw == NULL || max_raw == NULL || sum == NULL ||
-      sample_count == 0U || sample_count > APP_SCOPE_SAMPLE_COUNT) {
-    return false;
-  }
-
-  for (uint16_t i = 0; i < sample_count; ++i) {
-    if (samples[i] < local_min) {
-      local_min = samples[i];
-    }
-    if (samples[i] > local_max) {
-      local_max = samples[i];
-    }
-    local_sum += samples[i];
-  }
-
-  *min_raw = local_min;
-  *max_raw = local_max;
-  *sum = local_sum;
-  return true;
+  return snapshot_bounds(samples, sample_count, min_raw, max_raw, sum);
 }
 
 bool scope_render_build_trace(const uint16_t *samples,
