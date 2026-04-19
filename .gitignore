@@ -25,6 +25,8 @@
 .idea/
 .vscode/
 .settings/
+.claude/
+.omx/
 *.launch
 *.swp
 *.swo
