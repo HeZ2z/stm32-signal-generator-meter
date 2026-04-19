@@ -29,6 +29,7 @@ set(PROJECT_SOURCES
     src/signal_capture/signal_capture_adc_logic.c
     src/signal_gen/signal_gen.c
     src/signal_gen/signal_gen_dac.c
+    src/signal_gen/signal_gen_dac_logic.c
     src/signal_gen/signal_gen_logic.c
     src/signal_measure/signal_measure.c
     src/signal_measure/signal_measure_logic.c
@@ -45,6 +46,8 @@ set(PROJECT_SOURCES
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dac.c
+    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dac_ex.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c
     ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c

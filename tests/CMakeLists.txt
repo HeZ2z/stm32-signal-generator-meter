@@ -54,3 +54,11 @@ add_executable(test_signal_capture_adc_logic
 target_compile_definitions(test_signal_capture_adc_logic PRIVATE HOST_TEST)
 target_include_directories(test_signal_capture_adc_logic PRIVATE ../include ../src)
 add_test(NAME test_signal_capture_adc_logic COMMAND test_signal_capture_adc_logic)
+
+add_executable(test_signal_gen_dac_logic
+  test_signal_gen_dac_logic.c
+  ../src/signal_gen/signal_gen_dac_logic.c
+)
+target_compile_definitions(test_signal_gen_dac_logic PRIVATE HOST_TEST)
+target_include_directories(test_signal_gen_dac_logic PRIVATE ../include ../src)
+add_test(NAME test_signal_gen_dac_logic COMMAND test_signal_gen_dac_logic)

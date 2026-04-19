@@ -46,7 +46,11 @@ void lcd_draw_vline(uint16_t x, uint16_t y, uint16_t height, uint16_t color) {
 void lcd_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color) {
   int32_t dx = (int32_t)x1 - (int32_t)x0;
   int32_t sx = x0 < x1 ? 1 : -1;
-  int32_t dy = -((int32_t)y1 - (int32_t)y0 < 0 ? -((int32_t)y1 - (int32_t)y0) : ((int32_t)y1 - (int32_t)y0));
+  int32_t dy_abs = (int32_t)y1 - (int32_t)y0;
+  if (dy_abs < 0) {
+    dy_abs = -dy_abs;
+  }
+  int32_t dy = -dy_abs;
   int32_t sy = y0 < y1 ? 1 : -1;
   int32_t err = dx + dy;
 

@@ -98,13 +98,15 @@ bool scope_estimate_square_wave(const uint16_t *samples,
   uint16_t max_raw = 0U;
   uint32_t sum = 0U;
   uint16_t threshold;
-  uint16_t first_rising = 0U;
-  uint16_t second_rising = 0U;
-  uint16_t falling = 0U;
+  uint16_t rising_edges[8] = {0};
+  uint16_t falling_edges[8] = {0};
+  uint8_t rising_count = 0U;
+  uint8_t falling_count = 0U;
+  uint32_t period_sum = 0U;
+  uint32_t high_sum = 0U;
+  uint16_t first_period = 0U;
+  uint8_t complete_cycles = 0U;
   bool prev_high;
-  bool found_first_rising = false;
-  bool found_falling = false;
-  bool found_second_rising = false;
 
   if (estimate == NULL) {
     return false;
@@ -131,35 +133,54 @@ bool scope_estimate_square_wave(const uint16_t *samples,
   for (uint16_t i = 1U; i < sample_count; ++i) {
     bool high = samples[i] >= threshold;
 
-    if (!found_first_rising) {
-      if (!prev_high && high) {
-        first_rising = i;
-        found_first_rising = true;
+    if (!prev_high && high) {
+      if (rising_count < (sizeof(rising_edges) / sizeof(rising_edges[0]))) {
+        rising_edges[rising_count++] = i;
       }
-    } else if (!found_falling) {
-      if (prev_high && !high) {
-        falling = i;
-        found_falling = true;
+    } else if (prev_high && !high) {
+      if (falling_count < (sizeof(falling_edges) / sizeof(falling_edges[0]))) {
+        falling_edges[falling_count++] = i;
       }
-    } else if (!prev_high && high) {
-      second_rising = i;
-      found_second_rising = true;
-      break;
     }
 
     prev_high = high;
   }
 
-  if (!found_first_rising || !found_falling || !found_second_rising ||
-      second_rising <= first_rising || falling <= first_rising || falling >= second_rising) {
+  if (rising_count < 2U) {
     return false;
   }
 
-  estimate->frequency_hz = (sample_rate_hz + ((uint32_t)(second_rising - first_rising) / 2U)) /
-                           (uint32_t)(second_rising - first_rising);
-  estimate->duty_percent = (uint8_t)((((uint32_t)(falling - first_rising) * 100U) +
-                                      ((uint32_t)(second_rising - first_rising) / 2U)) /
-                                     (uint32_t)(second_rising - first_rising));
+  for (uint8_t i = 0U; i < (uint8_t)(rising_count - 1U); ++i) {
+    uint16_t rise = rising_edges[i];
+    uint16_t next_rise = rising_edges[i + 1U];
+    uint16_t fall = 0U;
+
+    for (uint8_t j = 0U; j < falling_count; ++j) {
+      if (falling_edges[j] > rise && falling_edges[j] < next_rise) {
+        fall = falling_edges[j];
+        break;
+      }
+    }
+
+    if (fall == 0U || next_rise <= rise || fall <= rise || fall >= next_rise) {
+      continue;
+    }
+
+    period_sum += (uint32_t)(next_rise - rise);
+    high_sum += (uint32_t)(fall - rise);
+    if (first_period == 0U) {
+      first_period = (uint16_t)(next_rise - rise);
+    }
+    ++complete_cycles;
+  }
+
+  if (complete_cycles == 0U || period_sum == 0U || first_period == 0U) {
+    return false;
+  }
+
+  estimate->frequency_hz =
+      (sample_rate_hz * (uint32_t)complete_cycles + (period_sum / 2U)) / period_sum;
+  estimate->duty_percent = (uint8_t)(((high_sum * 100U) + (period_sum / 2U)) / period_sum);
   estimate->valid = estimate->frequency_hz != 0U &&
                     estimate->duty_percent != 0U &&
                     estimate->duty_percent < 100U;

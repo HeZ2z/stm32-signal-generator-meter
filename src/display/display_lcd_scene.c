@@ -9,6 +9,7 @@
 #include "display/lcd_font.h"
 #include "display/lcd_prim.h"
 #include "signal_capture/signal_capture_adc.h"
+#include "signal_gen/signal_gen_dac.h"
 
 #define LCD_SPLASH_DURATION_MS 1800U
 #define LCD_DYNAMIC_REFRESH_MS APP_SCOPE_LCD_REFRESH_MS
@@ -29,7 +30,7 @@ typedef struct {
   lcd_scene_t scene;
   bool more_open;
   ui_highlight_t highlight;
-  signal_gen_config_t pending_config;
+  signal_gen_dac_config_t pending_config;
   char title[32];
   char footer[64];
   char set_line[40];
@@ -57,27 +58,31 @@ void lcd_draw_string(uint16_t x, uint16_t y, const char *text,
 }
 
 static void lcd_format_status(lcd_status_view_t *view,
-                               const signal_gen_config_t *config,
                                const signal_measure_result_t *measurement) {
-  const scope_capture_snapshot_t *snapshot = signal_capture_adc_latest();
+  scope_capture_frame_t frame = {0};
+  const signal_gen_dac_status_t *dac = signal_gen_dac_current();
+  uint32_t now = HAL_GetTick();
   (void)measurement;
+
+  signal_capture_adc_read_frame(&frame, now);
 
   (void)snprintf(view->header, sizeof(view->header), "REAL-TIME WAVEFORM");
   (void)snprintf(view->set_line, sizeof(view->set_line),
-                 "SET F=%luHZ D=%u%%",
-                 (unsigned long)config->frequency_hz, config->duty_percent);
+                 "DAC F=%luHZ SQ 50%%",
+                 (unsigned long)dac->frequency_hz);
 
-  if (snapshot != NULL && snapshot->valid) {
+  if (frame.ch_a.valid || frame.ch_b.valid) {
     (void)snprintf(view->meas_line, sizeof(view->meas_line),
-                   "ADC MIN=%u MAX=%u AVG=%u",
-                   snapshot->min_raw, snapshot->max_raw, snapshot->mean_raw);
+                   "ADC CH-A=%s CH-B=%s",
+                   frame.ch_a.valid ? "LIVE" : "MISS",
+                   frame.ch_b.valid ? "LIVE" : "MISS");
     (void)snprintf(view->err_line, sizeof(view->err_line),
-                   "SCOPE READY  PB6 -> PA0");
+                   "SCOPE READY  DAC -> ADC LOOPBACK");
     return;
   }
 
-  (void)snprintf(view->meas_line, sizeof(view->meas_line), "ADC NO-SIGNAL");
-  (void)snprintf(view->err_line, sizeof(view->err_line), "CHECK PB6-PA0 LOOPBACK");
+  (void)snprintf(view->meas_line, sizeof(view->meas_line), "ADC NO-SIGNAL CH-A/CH-B");
+  (void)snprintf(view->err_line, sizeof(view->err_line), "CHECK PA4->PA0 / PA5->PA6");
 }
 
 void display_lcd_scene_init(void) {
@@ -112,8 +117,8 @@ void lcd_draw_splash(void) {
   lcd_draw_hline(40, 170, 220, shadow);
   lcd_draw_vline(250, 82, 66, shadow);
 
-  lcd_draw_string(38, 72, "HEZZZ/STM32-SIGNAL-GENERATOR", text, panel, 2);
-  lcd_draw_string(74, 112, "PWM + MEASURE + TOUCH", accent, panel, 2);
+  lcd_draw_string(56, 72, "HEZ2Z/STM32-SIGNAL-GENERATOR", text, panel, 2);
+  lcd_draw_string(68, 112, "DUAL DAC + DUAL ADC + TOUCH", accent, panel, 2);
   lcd_draw_string(126, 152, "SEE GITHUB REPO", accent2, panel, 2);
   lcd_draw_string(140, 222, "APOLLO F429 RGBLCD DEMO", text, bg, 1);
 }
@@ -174,17 +179,17 @@ void lcd_draw_more_overlay(void) {
 
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U),
                   (uint16_t)(LCD_MORE_Y + 16U),
-                  "HEZZZ/STM32-SIGNAL-GENERATOR", text, panel, 1);
+                  "HEZ2Z/STM32-SIGNAL-GENERATOR", text, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 34U),
                   (uint16_t)(LCD_MORE_Y + 34U),
-                  "PWM + MEASURE + TOUCH DEMO", accent, panel, 1);
+                  "DUAL DAC + DUAL ADC DEMO", accent, panel, 1);
   lcd_draw_hline((uint16_t)(LCD_MORE_X + 16U),
                   (uint16_t)(LCD_MORE_Y + 54U), 304U,
                   lcd_rgb565(34, 72, 118));
 
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U),
                   (uint16_t)(LCD_MORE_Y + 66U),
-                  "REPO HEZ2Z/STM32-SIGNAL-GENERATOR", link, panel, 1);
+                  "REPO HEZ2Z/STM32-SIGNAL-GENERATOR-METER", link, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U),
                   (uint16_t)(LCD_MORE_Y + 80U), "METER", link, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U),
@@ -195,7 +200,7 @@ void lcd_draw_more_overlay(void) {
                   "LCD ALIENTEK 4342 RGBLCD + GT9147", text, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U),
                   (uint16_t)(LCD_MORE_Y + 126U),
-                  "SCOPE PB6 TIM4 CH1 -> PA0 ADC1 IN0", text, panel, 1);
+                  "SCOPE PA4/PA5 DAC -> PA0/PA6 ADC", text, panel, 1);
   lcd_draw_string((uint16_t)(LCD_MORE_X + 16U),
                   (uint16_t)(LCD_MORE_Y + 140U),
                   "TAP MORE OR BLANK AREA TO CLOSE", accent, panel, 1);
@@ -223,16 +228,14 @@ void lcd_restore_more_overlay(const ui_ctrl_view_t *ui,
                     ui->highlight == lcd_buttons[i].id);
   }
 
-  lcd_draw_info_cards(&ui->pending_config, NULL, signal_capture_adc_latest());
-  lcd_draw_scope_trace();
+  lcd_draw_control_dynamic(ui, measurement);
 }
 
 void lcd_render_ui(const ui_ctrl_view_t *ui,
-                   const signal_gen_config_t *config,
                    const signal_measure_result_t *measurement) {
   lcd_status_view_t status_view = {0};
 
-  lcd_format_status(&status_view, config, measurement);
+  lcd_format_status(&status_view, measurement);
   if (!ui->touch_ready) {
     (void)snprintf(status_view.touch_line, sizeof(status_view.touch_line),
                    "%s", "TOUCH INIT...");
@@ -254,14 +257,12 @@ void lcd_render_ui(const ui_ctrl_view_t *ui,
   bool touch_changed = scene_changed || strcmp(lcd_ui_last.touch_line, status_view.touch_line) != 0;
   bool freq_changed = scene_changed ||
                       lcd_ui_last.pending_config.frequency_hz != ui->pending_config.frequency_hz;
-  bool duty_changed = scene_changed ||
-                      lcd_ui_last.pending_config.duty_percent != ui->pending_config.duty_percent;
   bool set_changed = scene_changed || strcmp(lcd_ui_last.set_line, status_view.set_line) != 0;
   bool meas_changed = scene_changed || strcmp(lcd_ui_last.meas_line, status_view.meas_line) != 0;
   bool err_changed = scene_changed || strcmp(lcd_ui_last.err_line, status_view.err_line) != 0;
   bool hint_changed = scene_changed || strcmp(lcd_ui_last.hint_line, status_view.hint_line) != 0;
   bool needs_dynamic = title_changed || more_changed || footer_changed || touch_changed ||
-                       freq_changed || duty_changed || set_changed || meas_changed ||
+                       freq_changed || set_changed || meas_changed ||
                        err_changed || hint_changed;
 
   if (scene_changed && lcd_scene == LCD_SCENE_SPLASH) {
@@ -270,7 +271,7 @@ void lcd_render_ui(const ui_ctrl_view_t *ui,
     uint32_t now = HAL_GetTick();
     bool overlay_open = ui->more_open;
     bool force_refresh = scene_changed || more_changed || highlight_changed ||
-                         freq_changed || duty_changed || footer_changed || touch_changed;
+                         freq_changed || footer_changed || touch_changed;
     bool allow_measure_refresh = force_refresh ||
                                  (lcd_last_dynamic_refresh_ms == 0U) ||
                                  ((now - lcd_last_dynamic_refresh_ms) >= LCD_DYNAMIC_REFRESH_MS);
@@ -297,14 +298,15 @@ void lcd_render_ui(const ui_ctrl_view_t *ui,
         lcd_redraw_button((int)ui->highlight, true);
       }
 
-      if ((freq_changed || duty_changed || meas_changed || err_changed) && !overlay_open) {
-        lcd_draw_info_cards(&ui->pending_config, measurement, signal_capture_adc_latest());
-      }
-      if (footer_changed || touch_changed) {
+      if ((((freq_changed || meas_changed || err_changed) &&
+            !overlay_open) ||
+           ((footer_changed || touch_changed || allow_measure_refresh) &&
+            !overlay_open))) {
+        lcd_draw_control_dynamic(ui, measurement);
+      } else if (footer_changed || touch_changed) {
         lcd_draw_footer(ui);
       }
       if (allow_measure_refresh && !overlay_open) {
-        lcd_draw_scope_trace();
         lcd_last_dynamic_refresh_ms = now;
       }
     }

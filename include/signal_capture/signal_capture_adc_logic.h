@@ -6,6 +6,7 @@
 #include <stdint.h>
 
 #include "board/board_config.h"
+#include "signal_capture/signal_capture_adc.h"
 
 /* 纯逻辑函数：对采样数组进行边界扫描，返回 min / max / sum。
  * 用于替换 signal_capture_adc.c 中 update_snapshot_from_offset() 的内联计算，
@@ -39,5 +40,15 @@ static inline bool snapshot_bounds(const uint16_t *samples,
   *sum = local_sum;
   return true;
 }
+
+bool adc_logic_build_snapshot(const uint16_t *samples,
+                              uint16_t sample_count,
+                              uint32_t now_ms,
+                              scope_capture_snapshot_t *snapshot);
+
+bool adc_logic_unpack_interleaved_frame(const uint16_t *interleaved,
+                                        uint16_t raw_count,
+                                        uint32_t now_ms,
+                                        scope_capture_frame_t *frame);
 
 #endif

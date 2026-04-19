@@ -6,8 +6,7 @@
 
 #include "display/display.h"
 #include "main.h"
-#include "signal_gen/signal_gen.h"
-#include "signal_measure/signal_measure.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "touch/touch.h"
 #include "ui/ui_actions.h"
 #include "ui/ui_cmd.h"
@@ -25,9 +24,10 @@ void ui_ctrl_init(void) {
   active_control = ACTIVE_NONE;
   (void)memset(&view, 0, sizeof(view));
 
-  view.active_config = *signal_gen_current();
+  view.active_config.frequency_hz = signal_gen_dac_current()->frequency_hz;
+  view.active_config.waveform = signal_gen_dac_current()->waveform;
   view.pending_config = view.active_config;
-  (void)snprintf(view.title, sizeof(view.title), "HEZZZ/STM32-SIGNAL-GENERATOR");
+  (void)snprintf(view.title, sizeof(view.title), "HeZ2z/stm32-sig-meter");
 
   ui_actions_init(&view);
   touch_init();
@@ -66,7 +66,7 @@ void ui_ctrl_poll(void) {
       case TOUCH_EVENT_MOVE:
         active_control = hit_control(&event.point, view.more_open);
         view.highlight = active_highlight_map(active_control);
-        display_refresh_lcd(signal_gen_current(), signal_measure_latest());
+        display_refresh_lcd();
         break;
       case TOUCH_EVENT_UP:
         switch (active_control) {
@@ -83,21 +83,21 @@ void ui_ctrl_poll(void) {
             bump_config(0, 5);
             break;
           case ACTIVE_RESET:
-            view.pending_config.frequency_hz = APP_DEFAULT_PWM_FREQ_HZ;
-            view.pending_config.duty_percent = APP_DEFAULT_PWM_DUTY_PERCENT;
+            view.pending_config.frequency_hz = APP_DEFAULT_DAC_FREQ_HZ;
+            view.pending_config.waveform = APP_DAC_WAVE_SQUARE;
             apply_pending_config();
             break;
           case ACTIVE_HELP:
             view.more_open = !view.more_open;
             (void)snprintf(view.footer, sizeof(view.footer),
                            view.more_open ? "PROJECT INFO OPEN" : "PROJECT INFO CLOSED");
-            display_refresh_lcd(signal_gen_current(), signal_measure_latest());
+            display_refresh_lcd();
             break;
           case ACTIVE_NONE:
             if (view.more_open) {
               view.more_open = false;
               (void)snprintf(view.footer, sizeof(view.footer), "PROJECT INFO CLOSED");
-              display_refresh_lcd(signal_gen_current(), signal_measure_latest());
+              display_refresh_lcd();
             }
             break;
           default:

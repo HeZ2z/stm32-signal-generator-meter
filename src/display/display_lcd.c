@@ -7,8 +7,8 @@
 #include "display/display_lcd_scene.h"
 #include "display/display_lcd_scope.h"
 #include "display/lcd_prim.h"
-#include "signal_gen/signal_gen.h"
 #include "signal_measure/signal_measure.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "ui/ui_ctrl.h"
 
 #define LCD_SPLASH_DURATION_MS 1800U
@@ -47,17 +47,16 @@ void display_lcd_boot_banner(void) {
   }
 
   display_lcd_scene_set(LCD_SCENE_SPLASH);
-  display_lcd_status(signal_gen_current(), signal_measure_latest());
+  display_lcd_status();
 }
 
 void display_lcd_help(void) {
 }
 
-void display_lcd_status(const signal_gen_config_t *config,
-                        const signal_measure_result_t *measurement) {
+void display_lcd_status(void) {
   const ui_ctrl_view_t *ui = ui_ctrl_view();
 
-  if (!lcd_hw_ready || config == NULL || ui == NULL) {
+  if (!lcd_hw_ready || ui == NULL) {
     return;
   }
 
@@ -67,5 +66,5 @@ void display_lcd_status(const signal_gen_config_t *config,
     display_lcd_scene_set(LCD_SCENE_CONTROL);
   }
 
-  lcd_render_ui(ui, config, measurement);
+  lcd_render_ui(ui, signal_measure_latest());
 }

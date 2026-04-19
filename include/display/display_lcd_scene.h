@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "signal_gen/signal_gen.h"
 #include "signal_measure/signal_measure.h"
 #include "ui/ui_ctrl.h"
 
@@ -26,7 +25,6 @@ void lcd_draw_more_overlay(void);
 void lcd_restore_more_overlay(const ui_ctrl_view_t *ui,
                               const signal_measure_result_t *measurement);
 void lcd_render_ui(const ui_ctrl_view_t *ui,
-                    const signal_gen_config_t *config,
-                    const signal_measure_result_t *measurement);
+                   const signal_measure_result_t *measurement);
 
 #endif

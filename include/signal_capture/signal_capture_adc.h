@@ -17,9 +17,14 @@ typedef struct {
   uint32_t latest_update_ms;
 } scope_capture_snapshot_t;
 
+typedef struct {
+  scope_capture_snapshot_t ch_a;
+  scope_capture_snapshot_t ch_b;
+} scope_capture_frame_t;
+
 void signal_capture_adc_init(void);
-void signal_capture_adc_poll(uint32_t now_ms);
 void signal_capture_adc_dma_irq_handler(void);
-const scope_capture_snapshot_t *signal_capture_adc_latest(void);
+void signal_capture_adc_read_frame(scope_capture_frame_t *out, uint32_t now_ms);
+uint32_t signal_capture_adc_channel_sample_rate_hz(void);
 
 #endif

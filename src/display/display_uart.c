@@ -1,12 +1,12 @@
 #include "display/display_backend.h"
 
 #include <stdbool.h>
-#include <inttypes.h>
-#include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
 
 #include "main.h"
+#include "signal_capture/signal_capture_adc.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "touch/touch.h"
 
 /* 支持同时初始化多组串口，当前默认选择 consoles[0] 作为主控制台。 */
@@ -88,7 +88,7 @@ void display_uart_boot_banner(void) {
 
   int written = snprintf(buffer,
                          sizeof(buffer),
-                         "\r\n[%s]\r\nClock=%lu Hz, UART=%lu baud\r\nConsole=%s\r\nPWM=PB6(TIM4_CH1)\r\nMEAS=PA7(TIM3_CH2), loopback PB6->PA7\r\nTouch=GT9XXX PH6/PI3/PI8/PH7\r\nTouchInit=%s%s%s\r\n",
+                         "\r\n[%s]\r\nClock=%lu Hz, UART=%lu baud\r\nConsole=%s\r\nDAC=PA4/PA5 via TIM6+DMA\r\nADC=PA0/PA6 via TIM2 trigger\r\nTouch=GT9XXX PH6/PI3/PI8/PH7\r\nTouchInit=%s%s%s\r\n",
                          BOARD_NAME,
                          HAL_RCC_GetSysClockFreq(),
                          (unsigned long)APP_UART_BAUDRATE,
@@ -105,66 +105,39 @@ void display_uart_boot_banner(void) {
 void display_uart_help(void) {
   display_uart_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
   display_uart_write("Touch: tap F-1K F+1K D-5 D+5 RESET MORE on LCD\r\n");
+  display_uart_write("M9: DAC square output is fixed at 50% duty\r\n");
   display_uart_write("MORE: show project info on LCD, help stays on UART\r\n");
-  display_uart_write("Loopback: PB6(TIM4_CH1) -> PA7(TIM3_CH2)\r\n");
+  display_uart_write("Loopback: PA4(DAC1)->PA0(ADC1) and PA5(DAC2)->PA6(ADC1)\r\n");
 }
 
 /* 将当前设定值、实测值和 LCD 状态拼成一行串口状态文本。 */
-void display_uart_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
-  int32_t freq_error;
-  int32_t period_error;
-  int32_t duty_error;
-  char buffer[192];
+void display_uart_status(void) {
+  char buffer[256];
   const char *lcd_state = display_lcd_status_impl();
   const touch_runtime_t *touch = touch_runtime();
+  const signal_gen_dac_status_t *dac = signal_gen_dac_current();
+  scope_capture_frame_t frame = {0};
+  const char *wave = "SQUARE";
+  uint32_t now = HAL_GetTick();
 
-  if (measurement != NULL && measurement->valid) {
-    freq_error = (int32_t)measurement->frequency_hz - (int32_t)config->frequency_hz;
-    period_error = (int32_t)measurement->period_us -
-                   (int32_t)(1000000UL / config->frequency_hz);
-    duty_error = (int32_t)measurement->duty_percent - (int32_t)config->duty_percent;
+  signal_capture_adc_read_frame(&frame, now);
 
-    int written = snprintf(buffer,
-                           sizeof(buffer),
-                           "SET freq=%luHz duty=%u%% | MEAS freq=%luHz period=%luus duty=%u%% | ERR df=%" PRId32 "Hz dt=%" PRId32 "us dd=%" PRId32 "%%\r\n",
-                           config->frequency_hz,
-                           config->duty_percent,
-                           measurement->frequency_hz,
-                           measurement->period_us,
-                           measurement->duty_percent,
-                           freq_error,
-                           period_error,
-                           duty_error);
-    if (written > 0) {
-      size_t length = (size_t)written;
-      /* 先去掉原始换行，再把 LCD 状态追加到同一行末尾。 */
-      if (length >= 2U && buffer[length - 2U] == '\r' && buffer[length - 1U] == '\n') {
-        buffer[length - 2U] = '\0';
-        length -= 2U;
-      }
-      if (length < (sizeof(buffer) - 1U)) {
-        (void)snprintf(buffer + length,
-                       sizeof(buffer) - length,
-                       " | LCD %s | TOUCH %s%s%s\r\n",
-                       lcd_state,
-                       touch->status,
-                       touch->controller[0] != '\0' ? " ID=" : "",
-                       touch->controller[0] != '\0' ? touch->controller : "");
-      }
-      display_uart_write(buffer);
-    }
-    return;
+  if (dac->waveform != APP_DAC_WAVE_SQUARE) {
+    wave = "OTHER";
   }
 
-  int written = snprintf(buffer,
-                         sizeof(buffer),
-                         "SET freq=%luHz duty=%u%% | MEAS no-signal | check PB6->PA7 loopback | LCD %s | TOUCH %s%s%s\r\n",
-                         config->frequency_hz,
-                         config->duty_percent,
-                         lcd_state,
-                         touch->status,
-                         touch->controller[0] != '\0' ? " ID=" : "",
-                         touch->controller[0] != '\0' ? touch->controller : "");
+  int written = snprintf(
+      buffer, sizeof(buffer),
+      "DAC %s freq=%luHz duty=50%% | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
+      wave,
+      (unsigned long)dac->frequency_hz,
+      frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
+      frame.ch_b.valid ? "LIVE" : "NO-SIGNAL",
+      (unsigned long)signal_capture_adc_channel_sample_rate_hz(),
+      lcd_state,
+      touch->status,
+      touch->controller[0] != '\0' ? " ID=" : "",
+      touch->controller[0] != '\0' ? touch->controller : "");
   if (written > 0) {
     display_uart_write(buffer);
   }

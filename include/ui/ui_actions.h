@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-#include "signal_gen/signal_gen.h"
 #include "ui/ui_cmd.h"
 #include "ui/ui_ctrl.h"
 
@@ -11,7 +10,7 @@
 void ui_actions_init(ui_ctrl_view_t *view);
 
 /* 将配置值钳制到有效范围内。 */
-signal_gen_config_t clamp_config(signal_gen_config_t config);
+signal_gen_dac_config_t clamp_config(signal_gen_dac_config_t config);
 
 /* 将 pending_config 写入信号生成器。 */
 void apply_pending_config(void);

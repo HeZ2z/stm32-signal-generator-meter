@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "signal_gen/signal_gen.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "touch/touch.h"
 
 typedef enum {
@@ -27,8 +27,8 @@ typedef struct {
   bool touch_pressed;
   bool more_open;
   ui_highlight_t highlight;
-  signal_gen_config_t active_config;
-  signal_gen_config_t pending_config;
+  signal_gen_dac_config_t active_config;
+  signal_gen_dac_config_t pending_config;
   touch_point_t last_touch;
   touch_point_t calibration_target;
   char title[32];
