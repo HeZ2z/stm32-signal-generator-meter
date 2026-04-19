@@ -163,15 +163,17 @@
 固定方案：
 
 - 输出固定为 `PA4(DAC1)`、`PA5(DAC2)`
-- 回采固定为 `PA4 -> PA0`、`PA5 -> PA1`
-- 采用统一触发源和 DMA 环形缓冲组织双通道输出与采样
-- 当前旧 `PWM + Input Capture` 路径保留为可编译、可回归能力
+- 回采固定为 `PA4 -> PA0`、`PA5 -> PA6`
+- `DAC` 实际实现为 `TIM6 + 单 DMA packed dual write(DHR12RD)`
+- `ADC` 实际实现为 `TIM2 TRGO + ADC1 双 rank 扫描 + DMA`
+- 当前旧 `PWM + Input Capture` 路径保留为可编译、可回归能力，但默认不初始化
 
 退出条件：
 
 - 双路方波输出稳定
 - 双通道回采稳定
 - LCD `YT` 可同步叠加显示两路波形
+- 默认主页面、串口状态和触摸控制都不再依赖旧 `PWM`
 
 ## M10 三角波 + 最小 XY
 

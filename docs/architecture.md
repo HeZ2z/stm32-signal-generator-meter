@@ -26,9 +26,8 @@
 ### `signal_gen_dac`
 
 - 负责双路 `DAC` 波形产生
-- 负责波形表、相位步进、幅值映射和 DMA 输出
-- **当前为空壳实现**，已在 `src/signal_gen/signal_gen_dac.c` 建立框架
-- `M9` 阶段填充双路方波 DMA 输出
+- 当前 `M9` 实现为 `TIM6` 统一触发、单 DMA 向 `DAC->DHR12RD` 写 packed 双通道样本
+- 首版固定双方路同频同相 `square 50%`
 - `M10` 加入正弦/三角波查表
 - `M11` 完成李萨如图形链路
 
@@ -49,7 +48,8 @@
 
 - 负责真实波形采样、DMA 环形缓冲和快照抽取
 - `M8` 先从 `PB6 -> PA0` 单通道真实采样起步
-- `M9` 起扩展到双通道采样
+- `M9` 起扩展到 `ADC1` 双 rank 扫描、交错 DMA 和双通道 frame 输出
+- 当前触发源实际为 `TIM2 TRGO`，因为 `STM32F429` 常规 ADC 触发列表不含 `TIM7`
 
 ### `scope_render`
 
@@ -82,12 +82,10 @@
 
 后续扩展数据流：
 
-1. `signal_gen` 输出 `PB6 PWM`
-2. `signal_capture_adc` 对 `PB6 -> PA0` 做真实采样
-3. `scope_render` 输出单通道 `YT` 波形
-4. `signal_gen_dac` 输出双路 `DAC`
-5. `signal_capture_adc` 对双通道做回采
-6. `scope_render` 输出双通道 `YT / XY`
+1. `signal_gen_dac` 通过 `TIM6 + DMA` 输出 `PA4/PA5`
+2. `signal_capture_adc` 通过 `TIM2 TRGO + ADC1 scan + DMA` 回采 `PA0/PA6`
+3. `scope_render` 输出双通道 `YT`
+4. 后续 `M10/M11` 在此基础上扩展 `XY`
 
 ## 当前实现边界
 
@@ -98,8 +96,9 @@
 - 当前不引入外接传感器与外部信号源
 - 当前测试以宿主机侧纯逻辑回归为主，不做板级自动化测试
 - 当前 `M8` 已完成单通道真实采样 `YT`，`display_lcd.c` 已按技术层拆分为 `lcd_prim.c`（绘图原语）和 `lcd_font.c`（字模）
-- 双通道模拟链路固定按 `PA4/PA5` 输出、`PA0/PA1` 回采规划
+- 双通道模拟链路固定按 `PA4/PA5` 输出、`PA0/PA6` 回采规划
 - 双通道采样首版接受顺序扫描的非严格同时采样限制，主演示频率优先控制在中低频
+- 旧 `PWM + Input Capture` 代码仍保留在构建中，但默认不初始化，只作为 dormant 回归链路
 
 ## 关键风险
 
