@@ -65,11 +65,11 @@ void display_help(void) {
   display_lcd_help();
 }
 
-void display_status(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
-  display_uart_status(config, measurement);
-  display_lcd_status(config, measurement);
+void display_status(void) {
+  display_uart_status();
+  display_lcd_status();
 }
 
-void display_refresh_lcd(const signal_gen_config_t *config, const signal_measure_result_t *measurement) {
-  display_lcd_status(config, measurement);
+void display_refresh_lcd(void) {
+  display_lcd_status();
 }

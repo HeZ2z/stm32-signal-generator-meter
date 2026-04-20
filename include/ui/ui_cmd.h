@@ -12,6 +12,8 @@ typedef enum {
   UI_CMD_STATUS,
   UI_CMD_SET_FREQ,
   UI_CMD_SET_DUTY,
+  UI_CMD_SET_PHASE,
+  UI_CMD_SET_RATIO,
   UI_CMD_INVALID,
 } ui_cmd_kind_t;
 

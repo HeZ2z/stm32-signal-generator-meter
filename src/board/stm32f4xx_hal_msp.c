@@ -34,6 +34,83 @@ void HAL_MspInit(void) {
   HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
 }
 
+/* 配置 ADC1 单通道采样和 DMA 回传，供 M8 波形页使用。 */
+void HAL_ADC_MspInit(ADC_HandleTypeDef *hadc) {
+  GPIO_InitTypeDef gpio_init = {0};
+  static DMA_HandleTypeDef scope_dma = {0};
+
+  if (hadc->Instance != APP_SCOPE_ADC_INSTANCE) {
+    return;
+  }
+
+  __HAL_RCC_ADC1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
+  enable_gpio_clock(APP_SCOPE_ADC_GPIO_PORT);
+
+  gpio_init.Pin = APP_SCOPE_ADC_PIN_A | APP_SCOPE_ADC_PIN_B;
+  gpio_init.Mode = GPIO_MODE_ANALOG;
+  gpio_init.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(APP_SCOPE_ADC_GPIO_PORT, &gpio_init);
+
+  scope_dma.Instance = APP_SCOPE_ADC_DMA_INSTANCE;
+  scope_dma.Init.Channel = APP_SCOPE_ADC_DMA_CHANNEL;
+  scope_dma.Init.Direction = DMA_PERIPH_TO_MEMORY;
+  scope_dma.Init.PeriphInc = DMA_PINC_DISABLE;
+  scope_dma.Init.MemInc = DMA_MINC_ENABLE;
+  scope_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+  scope_dma.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+  scope_dma.Init.Mode = DMA_CIRCULAR;
+  scope_dma.Init.Priority = DMA_PRIORITY_HIGH;
+  scope_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+  if (HAL_DMA_Init(&scope_dma) != HAL_OK) {
+    Error_Handler();
+  }
+
+  __HAL_LINKDMA(hadc, DMA_Handle, scope_dma);
+
+  HAL_NVIC_SetPriority(APP_SCOPE_ADC_DMA_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(APP_SCOPE_ADC_DMA_IRQn);
+}
+
+void HAL_DAC_MspInit(DAC_HandleTypeDef *hdac) {
+  GPIO_InitTypeDef gpio_init = {0};
+  static DMA_HandleTypeDef dac_dma = {0};
+
+  if (hdac->Instance != APP_DAC_INSTANCE) {
+    return;
+  }
+
+  __HAL_RCC_DAC_CLK_ENABLE();
+  __HAL_RCC_DMA1_CLK_ENABLE();
+  enable_gpio_clock(APP_DAC_GPIO_PORT);
+
+  gpio_init.Pin = APP_DAC_PIN_A | APP_DAC_PIN_B;
+  gpio_init.Mode = GPIO_MODE_ANALOG;
+  gpio_init.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(APP_DAC_GPIO_PORT, &gpio_init);
+
+  dac_dma.Instance = APP_DAC_DMA_INSTANCE;
+  dac_dma.Init.Channel = APP_DAC_DMA_CHANNEL;
+  dac_dma.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  dac_dma.Init.PeriphInc = DMA_PINC_DISABLE;
+  dac_dma.Init.MemInc = DMA_MINC_ENABLE;
+  dac_dma.Init.PeriphDataAlignment = DMA_PDATAALIGN_WORD;
+  dac_dma.Init.MemDataAlignment = DMA_MDATAALIGN_WORD;
+  dac_dma.Init.Mode = DMA_CIRCULAR;
+  dac_dma.Init.Priority = DMA_PRIORITY_HIGH;
+  dac_dma.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+
+  if (HAL_DMA_Init(&dac_dma) != HAL_OK) {
+    Error_Handler();
+  }
+
+  __HAL_LINKDMA(hdac, DMA_Handle1, dac_dma);
+
+  HAL_NVIC_SetPriority(APP_DAC_DMA_IRQn, 1, 1);
+  HAL_NVIC_EnableIRQ(APP_DAC_DMA_IRQn);
+}
+
 /* 配置 TIM3 输入捕获所需 GPIO 和中断。 */
 void HAL_TIM_IC_MspInit(TIM_HandleTypeDef *htim) {
   GPIO_InitTypeDef gpio_init = {0};
@@ -54,6 +131,18 @@ void HAL_TIM_IC_MspInit(TIM_HandleTypeDef *htim) {
 
   HAL_NVIC_SetPriority(APP_MEASURE_TIM_IRQn, 0, 1);
   HAL_NVIC_EnableIRQ(APP_MEASURE_TIM_IRQn);
+}
+
+void HAL_TIM_Base_MspInit(TIM_HandleTypeDef *htim) {
+  if (htim->Instance == APP_DAC_TRIGGER_TIM_INSTANCE) {
+    APP_DAC_TRIGGER_TIM_RCC_ENABLE();
+    return;
+  }
+
+  if (htim->Instance == APP_SCOPE_ADC_TRIGGER_TIM_INSTANCE) {
+    APP_SCOPE_ADC_TRIGGER_TIM_RCC_ENABLE();
+    return;
+  }
 }
 
 /* 按 Apollo F429 RGB565 实际走线配置 LTDC 输出引脚。 */

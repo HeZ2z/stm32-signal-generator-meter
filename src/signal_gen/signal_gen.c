@@ -6,17 +6,7 @@
 static TIM_HandleTypeDef pwm_timer;
 static signal_gen_config_t current_config;
 
-/* TIM4 挂在 APB1 上，分频后需要按 STM32 定时器倍频规则回推出真实时钟。 */
-static uint32_t timer_clock_hz(void) {
-  uint32_t pclk = HAL_RCC_GetPCLK1Freq();
-  uint32_t ppre = (RCC->CFGR & RCC_CFGR_PPRE1);
-
-  if (ppre == RCC_HCLK_DIV1) {
-    return pclk;
-  }
-
-  return pclk * 2U;
-}
+/* TIM4 挂在 APB1 上，共享时钟函数由 board_config.h 提供。 */
 
 /* 初始化 PWM 输出引脚复用。 */
 static void pwm_gpio_init(void) {
@@ -47,7 +37,7 @@ void signal_gen_init(void) {
 /* 计算并应用新的 PWM 输出参数。 */
 bool signal_gen_apply(const signal_gen_config_t *config) {
   TIM_OC_InitTypeDef pwm_config = {0};
-  uint32_t timer_clock = timer_clock_hz();
+  uint32_t timer_clock = tim_apb1_clock_hz();
   uint32_t prescaler = 0U;
   uint32_t period = 0U;
   uint32_t pulse = 0U;

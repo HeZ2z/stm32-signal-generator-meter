@@ -34,6 +34,26 @@
 | 2026-04-15 | `M7` | 推荐演示频段确认 | `1000/50`、`2000/30`、`5000/70` 已有稳定样例；`20Hz` 与 `100000Hz` 仅作为边界现象观察 | Pass | 中频段适合主演示，极端频率用于说明当前 `1 MHz` 计时基准下的量化边界 |
 | 2026-04-15 | `M7` | 触摸连点抑制 | 代码新增 `30ms` 按下去抖、`45ms` 释放去抖、`12px` 候选漂移阈值 | Pass | 目标是抑制 GT9xxx 边缘抖动造成的重复点击，待实板继续确认手感 |
 | 2026-04-15 | `M7` | `MORE` 项目信息弹层接入 | 代码新增 `more_open` 状态、LCD overlay 和触摸屏蔽逻辑 | Pass | `MORE` 与 UART `help` 已解耦；待实板确认开关手感、遮罩效果和无频闪表现 |
+| 2026-04-18 | `M8` | 单通道真实波形页固件构建 | `cmake --build build` | Pass | 已接入 `ADC1 + DMA`、单通道 `YT` 波形页、输入/输出卡和断线退化显示 |
+| 2026-04-18 | `M8` | 宿主机波形逻辑回归 | `cmake --build build-host-tests` | Pass | 已重新生成宿主机测试二进制，覆盖 `scope_render` 方波估算与频率窗逻辑 |
+| 2026-04-18 | `M8` | 宿主机测试执行 | `ctest --test-dir build-host-tests --output-on-failure` | Pass | `test_scope_render_logic`、PWM 换算、输入测量与 UI 命令测试均通过 |
+| 2026-04-18 | `M8` | `PB6 -> PA0` 实板波形联调 | LCD 波形会随 `1000/50`、`2000/30`、`5000/70` 变化同步刷新 | Pass | 说明 M8 当前真实波形页已经由真实采样驱动，不是软件预览 |
+| 2026-04-18 | `M8` | 左卡语义与显示策略收敛 | `INPUT` 卡固定表示 `PA0 ADC1` 输入；频率窗内显示真实 `F/D`，超窗显示 `F=<当前输出频率> D=--` | Pass | 已去掉 `PA7 TIM3` 结果混用，左卡与波形页输入语义保持一致 |
+| 2026-04-18 | `M8` | 断线与悬空输入退化 | 拔掉 `PB6 -> PA0` 后左卡退化为无效输入，不再显示随机 `F/D` | Pass | 通过 `PA0` 下拉、更严格的方波判定和显示保持/滞回抑制悬空噪声误判 |
+| 2026-04-18 | `M8` | 波形页稳定性收敛 | 当前波形区频闪已压制，偶发 `ADC LIVE` 已通过短保持和两帧失败滞回显著减少 | Pass | 当前观感可接受，后续只在确有需要时继续收紧显示退化策略 |
+| 2026-04-18 | `M9` | 双 DAC 双方波规划 | 固定方案：`PA4(DAC1) -> PA0`、`PA5(DAC2) -> PA6`，目标为双通道 `YT` | Planned | `PA1` 实板验证仅有噪声，已改为 `PA6` 作为副通道回采 |
+| 2026-04-19 | `M9` | 双 DAC / 双 ADC 主链路固件构建 | `cmake --build build` | Pass | 双通道 `YT`、双卡片状态、主链路初始化与 legacy 保留已编译通过 |
+| 2026-04-19 | `M9` | 双通道采样与渲染宿主机回归 | `cmake --build build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | ADC 解交错、scope render 与 DAC 逻辑回归通过 |
+| 2026-04-19 | `M9` | 实板双回路联调 | `PA4 -> PA0`、`PA5 -> PA6` 双回路均可稳定显示，拔线后对应通道退化为 `NO SIGNAL` | Pass | 当前可视为 M9 完成，后续进入 M10 |
+| 2026-04-20 | `M10` | 三角波 + 最小 `XY` 首版接入 | `square / triangle` 可切换，`XY` 页面可进入并可返回 `YT` | Pass | 已修复 `XY` 页反向线段导致的卡死问题 |
+| 2026-04-20 | `M10` | `triangle` 与 `XY` 逻辑回归 | `cmake --build build && cmake --build build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | 已补 TIM6 配置搜索、刷新条件重构与边界检查硬化 |
+| 2026-04-20 | `M10` | M10 语义与演示脚本收敛 | README、roadmap、demo script、UART help/status 统一为 `square/triangle + 最小 XY` | Pass | 当前 `XY` 明确定位为真实双通道轨迹页；同频同相导致的退化直线/窄四边形保留为可解释现象，完整李萨如留给 `M11` |
+| 2026-04-20 | `M10` | `build_card_status` 频率窗修复 | 方波在可估算窗口内可正确显示 F/D；三角波按设计显示 `F=<当前输出频率> D=--` | Pass | 修复前 `scope_square_wave_frequency_window(..., NULL, NULL)` 始终返回 false，导致方波卡片频繁退化 |
+| 2026-04-20 | `M10` | 实板 square/triangle 切换 | 触摸 WAVE 按钮可稳定在 square 与 triangle 之间切换，LCD 波形同步变化 | Pass | YT 页面顶部卡片状态与实际波形类型一致 |
+| 2026-04-20 | `M10` | 实板 XY 页面切换 | 点击 YT/XY 可稳定进入 XY 并返回 YT，轨迹绘制正常 | Pass | 当前 XY 主要展示同频同相导致的退化直线/窄四边形，可解释 |
+| 2026-04-20 | `M10` | 实板双通道断线退化 | 拔掉 PA5->PA6 后 CH-B 退化为 NO SIGNAL，接回后恢复正常 | Pass | 与 M9 行为一致 |
+| 2026-04-20 | `M10` | UART status 语义验证 | `status` 输出包含 VIEW 字段（YT/XY），与 LCD 当前页面一致 | Pass | help 文案已明确 duty 为 info-only |
+| 2026-04-18 | `M11` | 正弦波 + 李萨如演示规划 | 目标为完成三波形、`YT/XY` 双模式和李萨如答辩链路 | Planned | 当前仅完成阶段定义，待后续实现和实板验证 |
 
 ## 后续记录建议
 

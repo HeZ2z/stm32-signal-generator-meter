@@ -4,7 +4,9 @@
 
 #include "display/display.h"
 #include "main.h"
+#include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "signal_measure/signal_measure.h"
 #include "touch/touch.h"
 #include "ui/ui_ctrl.h"
@@ -95,18 +97,24 @@ void app_init(void) {
 
   display_init();
   display_write("init: uart ok\r\n");
-  signal_gen_init();
-  display_write("init: pwm ok\r\n");
-  signal_measure_init();
-  display_write("init: measure ok\r\n");
-  /* 默认参数必须在启动阶段先落地，后续 UI 命令都基于这份当前配置修改。 */
-  if (!signal_gen_apply(&(signal_gen_config_t){
-          .frequency_hz = APP_DEFAULT_PWM_FREQ_HZ,
-          .duty_percent = APP_DEFAULT_PWM_DUTY_PERCENT,
+  signal_gen_dac_init();
+  if (!signal_gen_dac_apply(&(signal_gen_dac_config_t){
+          .frequency_hz = APP_DEFAULT_DAC_FREQ_HZ,
+          .waveform = APP_DAC_WAVE_SQUARE,
       })) {
     error_code = 2U;
     Error_Handler();
   }
+  display_write("init: dac ok\r\n");
+
+  signal_capture_adc_init();
+  display_write("init: adc scope ok\r\n");
+
+#if APP_ENABLE_LEGACY_PWM_CHAIN
+  signal_gen_init();
+  signal_measure_init();
+  display_write("init: legacy pwm/measure ok\r\n");
+#endif
 
   ui_ctrl_init();
   display_printf("init: touch %s\r\n", touch_runtime()->status);
@@ -115,7 +123,7 @@ void app_init(void) {
   display_printf("init: lcd %s\r\n", display_lcd_state());
 
   display_boot_banner();
-  display_write("Stable demo image: TOUCH + PWM + LCD control\r\n");
+  display_write("Stable demo image: TOUCH + DUAL DAC/ADC + LCD control\r\n");
   display_write("LED heartbeat active on PB0/PB1\r\n");
   display_help();
 
@@ -126,8 +134,6 @@ void app_init(void) {
 /* 单次轮询负责心跳、命令处理、测量超时退化和周期性状态输出。 */
 void app_run_once(void) {
   uint32_t now = HAL_GetTick();
-  const signal_gen_config_t *config = signal_gen_current();
-  const signal_measure_result_t *measurement = signal_measure_latest();
 
   /* 固件以固定节奏翻转 LED，便于快速确认主循环仍在运行。 */
   if ((now - last_blink_ms) >= 250U) {
@@ -137,11 +143,14 @@ void app_run_once(void) {
   }
 
   ui_ctrl_poll();
+#if APP_ENABLE_LEGACY_PWM_CHAIN
   signal_measure_poll(now);
+#endif
+  signal_gen_dac_poll(now);
 
   /* 状态输出频率故意低于主循环速度，避免串口和 LCD 被无意义刷屏。 */
   if ((now - last_status_ms) >= APP_STATUS_PERIOD_MS) {
-    display_status(config, measurement);
+    display_status();
     last_status_ms = now;
   }
 }
