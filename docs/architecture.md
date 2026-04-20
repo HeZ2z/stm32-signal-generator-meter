@@ -27,8 +27,8 @@
 
 - 负责双路 `DAC` 波形产生
 - 当前 `M9` 实现为 `TIM6` 统一触发、单 DMA 向 `DAC->DHR12RD` 写 packed 双通道样本
-- 首版固定双方路同频同相 `square 50%`
-- `M10` 加入正弦/三角波查表
+- 当前实现为双方路同频同相 `square / triangle`
+- `M10` 已接入三角波查表
 - `M11` 完成李萨如图形链路
 
 ### `ui_ctrl`
@@ -55,7 +55,7 @@
 
 - 负责把采样缓冲映射到 LCD 波形视图
 - 提供 `YT` 和 `XY` 两种绘制路径
-- `M10` 先接入最小 `XY`，`M11` 完成李萨如演示视图
+- `M10` 已接入最小 `XY`，`M11` 完成李萨如演示视图
 
 ### `display`
 
@@ -85,7 +85,7 @@
 1. `signal_gen_dac` 通过 `TIM6 + DMA` 输出 `PA4/PA5`
 2. `signal_capture_adc` 通过 `TIM2 TRGO + ADC1 scan + DMA` 回采 `PA0/PA6`
 3. `scope_render` 输出双通道 `YT`
-4. 后续 `M10/M11` 在此基础上扩展 `XY`
+4. 当前 `display_lcd_xy` 已在此基础上提供最小 `XY` 页面
 
 ## 当前实现边界
 

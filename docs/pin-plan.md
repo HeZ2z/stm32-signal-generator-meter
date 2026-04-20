@@ -15,10 +15,10 @@
 | --- | --- | --- | --- | --- | --- |
 | `PWM_OUT` | 波形输出 | `PB6` | `TIM4_CH1` | Active | 当前稳定主固件默认输出脚 |
 | `MEAS_IN` | 输入测量 | `PA7` | `TIM3_CH2` | Active | 为释放 `PB5` 给 `LCD_BL`，回环改为 `PB6 -> PA7` |
-| `DAC_OUT1` | 模拟输出 1 | `PA4` | `DAC_CH1` | Planned | `M9` 起作为双 DAC 主通道输出 |
-| `DAC_OUT2` | 模拟输出 2 | `PA5` | `DAC_CH2` | Planned | `M9` 起作为双 DAC 副通道输出 |
-| `ADC_IN_SCOPE1` | 波形采样 1 | `PA0` | `ADC1_IN0` | Planned | `M8` 先用于 `PB6 -> PA0`，`M9` 起用于 `PA4 -> PA0` |
-| `ADC_IN_SCOPE2` | 波形采样 2 | `PA6` | `ADC1_IN6` | Planned | `M9` 起用于 `PA5 -> PA6` 双通道回采 |
+| `DAC_OUT1` | 模拟输出 1 | `PA4` | `DAC_CH1` | Active | 当前双 DAC 主通道输出 |
+| `DAC_OUT2` | 模拟输出 2 | `PA5` | `DAC_CH2` | Active | 当前双 DAC 副通道输出 |
+| `ADC_IN_SCOPE1` | 波形采样 1 | `PA0` | `ADC1_IN0` | Active | 当前用于 `PA4 -> PA0` 主通道回采 |
+| `ADC_IN_SCOPE2` | 波形采样 2 | `PA6` | `ADC1_IN6` | Active | 当前用于 `PA5 -> PA6` 副通道回采 |
 | `DAC_TRGO` | DAC 刷新触发 | `TIM6` | `TIM6_TRGO` | Active | `M9` 用于双 DAC 同频方波输出 |
 | `ADC_TRGO` | ADC 采样触发 | `TIM2` | `TIM2_TRGO` | Active | `STM32F429` 常规 ADC 触发列表不含 `TIM7`，因此实际改用 `TIM2` |
 | `UART_TX` | 串口发送 | `PA9` | `USART1_TX` | Provisional | 当前工程默认日志口 |

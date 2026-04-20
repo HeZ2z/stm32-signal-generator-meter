@@ -42,7 +42,11 @@
 | 2026-04-18 | `M8` | 断线与悬空输入退化 | 拔掉 `PB6 -> PA0` 后左卡退化为无效输入，不再显示随机 `F/D` | Pass | 通过 `PA0` 下拉、更严格的方波判定和显示保持/滞回抑制悬空噪声误判 |
 | 2026-04-18 | `M8` | 波形页稳定性收敛 | 当前波形区频闪已压制，偶发 `ADC LIVE` 已通过短保持和两帧失败滞回显著减少 | Pass | 当前观感可接受，后续只在确有需要时继续收紧显示退化策略 |
 | 2026-04-18 | `M9` | 双 DAC 双方波规划 | 固定方案：`PA4(DAC1) -> PA0`、`PA5(DAC2) -> PA6`，目标为双通道 `YT` | Planned | `PA1` 实板验证仅有噪声，已改为 `PA6` 作为副通道回采 |
-| 2026-04-18 | `M10` | 三角波 + 最小 `XY` 规划 | 目标为在双通道框架上加入三角波并打通最小 `XY` 成图 | Planned | 当前仅完成阶段定义，待实现波形与显示逻辑 |
+| 2026-04-19 | `M9` | 双 DAC / 双 ADC 主链路固件构建 | `cmake --build build` | Pass | 双通道 `YT`、双卡片状态、主链路初始化与 legacy 保留已编译通过 |
+| 2026-04-19 | `M9` | 双通道采样与渲染宿主机回归 | `cmake --build build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | ADC 解交错、scope render 与 DAC 逻辑回归通过 |
+| 2026-04-19 | `M9` | 实板双回路联调 | `PA4 -> PA0`、`PA5 -> PA6` 双回路均可稳定显示，拔线后对应通道退化为 `NO SIGNAL` | Pass | 当前可视为 M9 完成，后续进入 M10 |
+| 2026-04-20 | `M10` | 三角波 + 最小 `XY` 首版接入 | `square / triangle` 可切换，`XY` 页面可进入并可返回 `YT` | Pass | 已修复 `XY` 页反向线段导致的卡死问题 |
+| 2026-04-20 | `M10` | `triangle` 与 `XY` 逻辑回归 | `cmake --build build && cmake --build build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | 已补 TIM6 配置搜索、刷新条件重构与边界检查硬化 |
 | 2026-04-18 | `M11` | 正弦波 + 李萨如演示规划 | 目标为完成三波形、`YT/XY` 双模式和李萨如答辩链路 | Planned | 当前仅完成阶段定义，待后续实现和实板验证 |
 
 ## 后续记录建议
