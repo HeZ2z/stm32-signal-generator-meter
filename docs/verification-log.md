@@ -47,6 +47,12 @@
 | 2026-04-19 | `M9` | 实板双回路联调 | `PA4 -> PA0`、`PA5 -> PA6` 双回路均可稳定显示，拔线后对应通道退化为 `NO SIGNAL` | Pass | 当前可视为 M9 完成，后续进入 M10 |
 | 2026-04-20 | `M10` | 三角波 + 最小 `XY` 首版接入 | `square / triangle` 可切换，`XY` 页面可进入并可返回 `YT` | Pass | 已修复 `XY` 页反向线段导致的卡死问题 |
 | 2026-04-20 | `M10` | `triangle` 与 `XY` 逻辑回归 | `cmake --build build && cmake --build build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | 已补 TIM6 配置搜索、刷新条件重构与边界检查硬化 |
+| 2026-04-20 | `M10` | M10 语义与演示脚本收敛 | README、roadmap、demo script、UART help/status 统一为 `square/triangle + 最小 XY` | Pass | 当前 `XY` 明确定位为真实双通道轨迹页；同频同相导致的退化直线/窄四边形保留为可解释现象，完整李萨如留给 `M11` |
+| 2026-04-20 | `M10` | `build_card_status` 频率窗修复 | 方波在可估算窗口内可正确显示 F/D；三角波按设计显示 `F=<当前输出频率> D=--` | Pass | 修复前 `scope_square_wave_frequency_window(..., NULL, NULL)` 始终返回 false，导致方波卡片频繁退化 |
+| 2026-04-20 | `M10` | 实板 square/triangle 切换 | 触摸 WAVE 按钮可稳定在 square 与 triangle 之间切换，LCD 波形同步变化 | Pass | YT 页面顶部卡片状态与实际波形类型一致 |
+| 2026-04-20 | `M10` | 实板 XY 页面切换 | 点击 YT/XY 可稳定进入 XY 并返回 YT，轨迹绘制正常 | Pass | 当前 XY 主要展示同频同相导致的退化直线/窄四边形，可解释 |
+| 2026-04-20 | `M10` | 实板双通道断线退化 | 拔掉 PA5->PA6 后 CH-B 退化为 NO SIGNAL，接回后恢复正常 | Pass | 与 M9 行为一致 |
+| 2026-04-20 | `M10` | UART status 语义验证 | `status` 输出包含 VIEW 字段（YT/XY），与 LCD 当前页面一致 | Pass | help 文案已明确 duty 为 info-only |
 | 2026-04-18 | `M11` | 正弦波 + 李萨如演示规划 | 目标为完成三波形、`YT/XY` 双模式和李萨如答辩链路 | Planned | 当前仅完成阶段定义，待后续实现和实板验证 |
 
 ## 后续记录建议

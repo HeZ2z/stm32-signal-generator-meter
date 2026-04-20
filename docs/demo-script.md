@@ -22,7 +22,7 @@ sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 2. 展示默认状态：
 
 ```text
-DAC SQUARE freq=1000Hz duty=50% | ADC CH-A=LIVE CH-B=LIVE @100000Hz | LCD control | TOUCH READY
+DAC SQUARE freq=1000Hz | VIEW YT | ADC CH-A=LIVE CH-B=LIVE @100000Hz | LCD READY | TOUCH READY
 ```
 
 3. 在 LCD 上触摸把频率调整到 `2000Hz`，说明系统已经从默认参数切换到新的目标输出。
@@ -37,19 +37,36 @@ DAC SQUARE freq=1000Hz duty=50% | ADC CH-A=LIVE CH-B=LIVE @100000Hz | LCD contro
 8. 重新接回 `PA5 -> PA6`，说明系统可恢复到正常双通道状态。
 9. 如需兜底演示，可在串口输入 `help`、`status`、`freq <hz>`，证明 `UART` 仍可作为控制入口。
 
-## 演示时建议说明
+## M10 演示步骤
+
+1. 上电或复位后，说明当前主链路已经进入 `DAC -> ADC -> LCD` 的双通道真实采样模式，默认先看 `YT`。
+2. 展示默认 `square` 输出与双通道 `YT` 叠加波形。
+3. 通过 LCD 点击 `WAVE` 切换到 `triangle`，说明当前开放波形仅有 `square / triangle`。
+4. 观察 `YT` 页面顶部卡片：
+   - 方波在可估算窗口内显示真实 `F/D`
+   - 三角波按当前 M10 设计退化为 `F=<当前输出频率> D=--`
+5. 点击 `YT/XY` 进入 `XY` 页面，说明 `X=CH-A(PA0)`、`Y=CH-B(PA6)` 均来自真实 ADC 采样。
+6. 说明当前双 DAC 输出仍固定同频同相，因此：
+   - `square` 在 `XY` 上主要表现为退化斜线
+   - `triangle` 在 `XY` 上主要表现为窄四边形或近平行四边形
+7. 点击 `YT/XY` 返回 `YT`，证明两个页面可以稳定来回切换。
+8. 如需串口兜底，输入 `help`、`status`、`freq <hz>`；若输入 `duty <1-99>`，系统只会提示当前 M10 DAC 模式不可调。
+
+## M10 演示时建议说明
 
 - 当前主链路不再依赖旧 `PWM + Input Capture`，而是 `DAC -> ADC -> LCD` 真值闭环。
+- 当前 `XY` 页面是最小版：边框、中心线、逐点绘制，不含持久辉光、抗锯齿和双缓冲特效。
+- 当前双通道输出仍固定同频同相，因此 M10 的 `XY` 主要用于证明真实轨迹页已经打通，而不是完整李萨如演示。
 - 断线后对应输入卡会退化为 `NO SIGNAL`，不会保留旧值。
 - 这套方案不依赖外部信号源，只需要单板和两根杜邦线即可完成完整演示。
 - 推荐主演示频率固定为 `1000Hz`、`2000Hz`、`5000Hz`。
 - 超出稳定估算窗口时，输入卡按设计显示 `F=<当前输出频率> D=--`。
 
-## 失败回退方案
+## M10 失败回退方案
 
 - 若串口没有输出，先检查是否正常从 Flash 启动、波特率是否为 `115200`。
 - 若某一路输入卡无效，优先检查 `PA4 -> PA0` 或 `PA5 -> PA6` 杜邦线。
-- 若出现 `ERR unknown command`，重新输入标准命令：`help`、`status`、`freq <hz>`、`duty <1-99>`。
+- 若出现 `ERR unknown command`，重新输入标准命令：`help`、`status`、`freq <hz>`；`duty <1-99>` 仅用于提示当前模式不可调。
 - 若 LCD 可亮但触摸未恢复，优先回退到串口命令演示，不阻塞主链路说明。
 
 ## Legacy 回归脚本
@@ -58,12 +75,6 @@ DAC SQUARE freq=1000Hz duty=50% | ADC CH-A=LIVE CH-B=LIVE @100000Hz | LCD contro
 
 - 接线：`PB6(TIM4_CH1) -> PA0(ADC1_IN0)`
 - 演示目标：保留旧链路作为回归用，不再作为默认主演示
-
-### M10 三角波 + 最小 XY
-
-- 演示目标：在双通道框架内切换 `square / triangle`，并展示最小 `XY`
-- 当前状态：页面与切换链路已接入，默认双方路仍为同频同相
-- 观察点：`square` 在 `XY` 上主要退化为斜线，`triangle` 主要退化为窄平行四边形，这是顺序扫描双 ADC 的当前可解释现象
 
 ### M11 正弦波 + 李萨如
 
