@@ -26,9 +26,13 @@ static void lcd_draw_xy_info_card(const signal_gen_dac_status_t *dac) {
   uint16_t text = lcd_rgb565(236, 246, 255);
   char line[40];
 
-  (void)snprintf(line, sizeof(line), "%s %luHZ",
-                 signal_gen_dac_waveform_short_name(dac->waveform),
-                 (unsigned long)dac->frequency_hz);
+  if (dac->active) {
+    (void)snprintf(line, sizeof(line), "%s %luHZ",
+                   signal_gen_dac_waveform_short_name(dac->waveform),
+                   (unsigned long)dac->frequency_hz);
+  } else {
+    (void)snprintf(line, sizeof(line), "OUTPUT STOPPED");
+  }
   if (lcd_xy_state.info_valid &&
       strcmp(lcd_xy_state.output_line, line) == 0) {
     return;

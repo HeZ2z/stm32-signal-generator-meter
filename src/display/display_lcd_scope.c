@@ -293,9 +293,13 @@ void lcd_scope_info_refresh(const signal_gen_dac_status_t *dac,
     (void)snprintf(ch_b_line, sizeof(ch_b_line), "NO SIGNAL");
   }
 
-  (void)snprintf(output_line, sizeof(output_line), "F=%luHZ %s",
-                 (unsigned long)dac->frequency_hz,
-                 signal_gen_dac_waveform_short_name(dac->waveform));
+  if (dac->active) {
+    (void)snprintf(output_line, sizeof(output_line), "F=%luHZ %s",
+                   (unsigned long)dac->frequency_hz,
+                   signal_gen_dac_waveform_short_name(dac->waveform));
+  } else {
+    (void)snprintf(output_line, sizeof(output_line), "OUTPUT STOPPED");
+  }
 
   if (lcd_scope_text_cache.valid &&
       strcmp(lcd_scope_text_cache.ch_a_line, ch_a_line) == 0 &&

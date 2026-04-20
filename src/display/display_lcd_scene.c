@@ -159,11 +159,16 @@ static void lcd_format_status(lcd_status_view_t *view,
   signal_capture_adc_read_frame(&frame, now);
 
   (void)snprintf(view->header, sizeof(view->header), "REAL-TIME WAVEFORM");
-  (void)snprintf(view->set_line, sizeof(view->set_line),
-                 "DAC %s F=%luHZ  VIEW=%s",
-                 signal_gen_dac_waveform_short_name(dac->waveform),
-                 (unsigned long)dac->frequency_hz,
-                 lcd_scene == LCD_SCENE_XY ? "XY" : "YT");
+  if (dac->active) {
+    (void)snprintf(view->set_line, sizeof(view->set_line),
+                   "DAC %s F=%luHZ  VIEW=%s",
+                   signal_gen_dac_waveform_short_name(dac->waveform),
+                   (unsigned long)dac->frequency_hz,
+                   lcd_scene == LCD_SCENE_XY ? "XY" : "YT");
+  } else {
+    (void)snprintf(view->set_line, sizeof(view->set_line),
+                   "OUTPUT STOPPED");
+  }
   if (frame.ch_a.valid || frame.ch_b.valid) {
     (void)snprintf(view->meas_line, sizeof(view->meas_line),
                    "ADC CH-A=%s CH-B=%s",

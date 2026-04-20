@@ -133,21 +133,40 @@ void display_uart_status(void) {
     view = "XY";
   }
 
-  int written = snprintf(
-      buffer, sizeof(buffer),
-      "DAC %s freq=%luHz phase=%d ratio=%u | VIEW %s | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
-      wave,
-      (unsigned long)dac->frequency_hz,
-      (int)(dac->ch_b_phase_offset_rad * 100.0f),
-      dac->ch_b_frequency_ratio == 0U ? 1U : dac->ch_b_frequency_ratio,
-      view,
-      frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
-      frame.ch_b.valid ? "LIVE" : "NO-SIGNAL",
-      (unsigned long)signal_capture_adc_channel_sample_rate_hz(),
-      lcd_state,
-      touch->status,
-      touch->controller[0] != '\0' ? " ID=" : "",
-      touch->controller[0] != '\0' ? touch->controller : "");
+  int written;
+  if (dac->active) {
+    written = snprintf(
+        buffer, sizeof(buffer),
+        "DAC %s freq=%luHz phase=%d ratio=%u | VIEW %s | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
+        wave,
+        (unsigned long)dac->frequency_hz,
+        (int)(dac->ch_b_phase_offset_rad * 100.0f),
+        dac->ch_b_frequency_ratio == 0U ? 1U : dac->ch_b_frequency_ratio,
+        view,
+        frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
+        frame.ch_b.valid ? "LIVE" : "NO-SIGNAL",
+        (unsigned long)signal_capture_adc_channel_sample_rate_hz(),
+        lcd_state,
+        touch->status,
+        touch->controller[0] != '\0' ? " ID=" : "",
+        touch->controller[0] != '\0' ? touch->controller : "");
+  } else {
+    written = snprintf(
+        buffer, sizeof(buffer),
+        "DAC INACTIVE last=%s freq=%luHz phase=%d ratio=%u | VIEW %s | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
+        wave,
+        (unsigned long)dac->frequency_hz,
+        (int)(dac->ch_b_phase_offset_rad * 100.0f),
+        dac->ch_b_frequency_ratio == 0U ? 1U : dac->ch_b_frequency_ratio,
+        view,
+        frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
+        frame.ch_b.valid ? "LIVE" : "NO-SIGNAL",
+        (unsigned long)signal_capture_adc_channel_sample_rate_hz(),
+        lcd_state,
+        touch->status,
+        touch->controller[0] != '\0' ? " ID=" : "",
+        touch->controller[0] != '\0' ? touch->controller : "");
+  }
   if (written > 0) {
     display_uart_write(buffer);
   }
