@@ -11,10 +11,10 @@ ui_highlight_t active_highlight_map(active_control_t control) {
       return UI_HIGHLIGHT_FREQ_DOWN;
     case ACTIVE_FREQ_P1000:
       return UI_HIGHLIGHT_FREQ_UP;
-    case ACTIVE_DUTY_M5:
-      return UI_HIGHLIGHT_DUTY_DOWN;
-    case ACTIVE_DUTY_P5:
-      return UI_HIGHLIGHT_DUTY_UP;
+    case ACTIVE_WAVE_TOGGLE:
+      return UI_HIGHLIGHT_WAVE_TOGGLE;
+    case ACTIVE_SCREEN_TOGGLE:
+      return UI_HIGHLIGHT_SCREEN_TOGGLE;
     case ACTIVE_RESET:
       return UI_HIGHLIGHT_RESET;
     case ACTIVE_HELP:
@@ -40,10 +40,10 @@ active_control_t hit_control(const touch_point_t *point, bool more_open) {
     return ACTIVE_FREQ_P1000;
   }
   if (point_in_rect(point, (rect_t){174U, 224U, 246U, 254U})) {
-    return ACTIVE_DUTY_M5;
+    return ACTIVE_WAVE_TOGGLE;
   }
   if (point_in_rect(point, (rect_t){250U, 224U, 322U, 254U})) {
-    return ACTIVE_DUTY_P5;
+    return ACTIVE_SCREEN_TOGGLE;
   }
   if (point_in_rect(point, (rect_t){356U, 224U, 454U, 254U})) {
     return ACTIVE_RESET;

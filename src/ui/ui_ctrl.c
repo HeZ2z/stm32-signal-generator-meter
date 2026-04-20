@@ -76,15 +76,20 @@ void ui_ctrl_poll(void) {
           case ACTIVE_FREQ_P1000:
             bump_config(1000, 0);
             break;
-          case ACTIVE_DUTY_M5:
-            bump_config(0, -5);
+          case ACTIVE_WAVE_TOGGLE:
+            toggle_waveform();
             break;
-          case ACTIVE_DUTY_P5:
-            bump_config(0, 5);
+          case ACTIVE_SCREEN_TOGGLE:
+            view.screen = view.screen == UI_SCREEN_XY ? UI_SCREEN_CONTROL
+                                                      : UI_SCREEN_XY;
+            (void)snprintf(view.footer, sizeof(view.footer),
+                           view.screen == UI_SCREEN_XY ? "VIEW XY" : "VIEW YT");
+            display_refresh_lcd();
             break;
           case ACTIVE_RESET:
             view.pending_config.frequency_hz = APP_DEFAULT_DAC_FREQ_HZ;
             view.pending_config.waveform = APP_DAC_WAVE_SQUARE;
+            view.screen = UI_SCREEN_CONTROL;
             apply_pending_config();
             break;
           case ACTIVE_HELP:

@@ -17,6 +17,7 @@ void apply_pending_config(void);
 
 /* 按增量修改 pending_config 并 apply。 */
 void bump_config(int32_t freq_delta, int32_t duty_delta);
+void toggle_waveform(void);
 
 /* 处理 UART 命令（SET_FREQ / SET_DUTY / HELP / STATUS）。 */
 void handle_ui_command(const ui_cmd_t *cmd);

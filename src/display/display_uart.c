@@ -104,8 +104,8 @@ void display_uart_boot_banner(void) {
 /* 帮助信息保持纯文本，方便普通串口工具直接查看。 */
 void display_uart_help(void) {
   display_uart_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
-  display_uart_write("Touch: tap F-1K F+1K D-5 D+5 RESET MORE on LCD\r\n");
-  display_uart_write("M9: DAC square output is fixed at 50% duty\r\n");
+  display_uart_write("Touch: tap F-1K F+1K WAVE YT/XY RESET MORE on LCD\r\n");
+  display_uart_write("M10: square / triangle, duty is not user-adjustable\r\n");
   display_uart_write("MORE: show project info on LCD, help stays on UART\r\n");
   display_uart_write("Loopback: PA4(DAC1)->PA0(ADC1) and PA5(DAC2)->PA6(ADC1)\r\n");
 }
@@ -122,13 +122,13 @@ void display_uart_status(void) {
 
   signal_capture_adc_read_frame(&frame, now);
 
-  if (dac->waveform != APP_DAC_WAVE_SQUARE) {
-    wave = "OTHER";
+  if (dac->waveform == APP_DAC_WAVE_TRIANGLE) {
+    wave = "TRIANGLE";
   }
 
   int written = snprintf(
       buffer, sizeof(buffer),
-      "DAC %s freq=%luHz duty=50%% | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
+      "DAC %s freq=%luHz | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
       wave,
       (unsigned long)dac->frequency_hz,
       frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
