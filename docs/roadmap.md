@@ -226,3 +226,8 @@
 - 三种波形都能稳定输出与显示
 - `XY` 可稳定演示直线、圆/椭圆和 `1:2` 李萨如图
 - 文档、演示脚本与验证记录全部收口
+
+当前状态：进行中（代码路径已完成，待实板三场景验证后收口）。
+已实现三波形（square/triangle/sine）、双通道 DAC/TIM6 波形表驱动、YT/XY 双模式。
+失败语义已收口：stop_dual_dma() 为唯一停机 owner，
+apply() 失败标 dac_status.active=false，display 层消费该字段。
