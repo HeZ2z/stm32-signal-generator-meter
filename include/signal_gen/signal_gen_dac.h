@@ -31,4 +31,6 @@ void signal_gen_dac_dma_irq_handler(void);
 
 void signal_gen_dac_poll(uint32_t now_ms);
 
+const char *signal_gen_dac_waveform_short_name(dac_waveform_t waveform);
+
 #endif

@@ -23,18 +23,6 @@ typedef struct {
   uint8_t duty_percent;
 } lcd_scope_card_status_t;
 
-static const char *waveform_short_name(dac_waveform_t waveform) {
-  switch (waveform) {
-    case APP_DAC_WAVE_TRIANGLE:
-      return "TRI";
-    case APP_DAC_WAVE_SQUARE:
-      return "SQR";
-    case APP_DAC_WAVE_SINE:
-    default:
-      return "UNK";
-  }
-}
-
 static bool build_trace_from_snapshot(const scope_capture_snapshot_t *snapshot,
                                       scope_render_trace_t *trace) {
   if (snapshot == NULL || !snapshot->valid) {
@@ -307,7 +295,7 @@ static void lcd_draw_info_cards(const signal_gen_dac_status_t *dac,
   lcd_draw_string(230, 30, "PA4/PA5 DAC1/2", output_accent, panel, 1);
   (void)snprintf(line, sizeof(line), "F=%luHZ %s",
                  (unsigned long)dac->frequency_hz,
-                 waveform_short_name(dac->waveform));
+                 signal_gen_dac_waveform_short_name(dac->waveform));
   lcd_draw_string(230, 40, line, text, panel, 1);
 }
 

@@ -8,16 +8,24 @@
 #include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen_dac.h"
 
-static const char *waveform_short_name(dac_waveform_t waveform) {
-  switch (waveform) {
-    case APP_DAC_WAVE_TRIANGLE:
-      return "TRI";
-    case APP_DAC_WAVE_SQUARE:
-      return "SQR";
-    case APP_DAC_WAVE_SINE:
-    default:
-      return "UNK";
-  }
+static void lcd_draw_xy_info(const signal_gen_dac_status_t *dac) {
+  uint16_t panel = lcd_rgb565(7, 16, 34);
+  uint16_t border = lcd_rgb565(54, 122, 178);
+  uint16_t accent = lcd_rgb565(255, 182, 86);
+  uint16_t text = lcd_rgb565(236, 246, 255);
+  char line[40];
+
+  lcd_draw_card(18, 14, 198, 38, border, panel, accent);
+  lcd_draw_card(222, 14, 116, 38, border, panel, accent);
+  lcd_draw_string(26, 20, "XY MODE", text, panel, 1);
+  lcd_draw_string(26, 30, "X=CH-A(PA0)", text, panel, 1);
+  lcd_draw_string(26, 40, "Y=CH-B(PA6)", text, panel, 1);
+  lcd_draw_string(230, 20, "OUTPUT", text, panel, 1);
+  (void)snprintf(line, sizeof(line), "%s %luHZ",
+                 signal_gen_dac_waveform_short_name(dac->waveform),
+                 (unsigned long)dac->frequency_hz);
+  lcd_draw_string(230, 30, line, accent, panel, 1);
+  lcd_draw_string(230, 40, "PA4/PA5 DAC", text, panel, 1);
 }
 
 static uint16_t xy_map_x(uint16_t raw) {
@@ -84,28 +92,12 @@ void lcd_draw_xy_dynamic(const ui_ctrl_view_t *ui,
                          const signal_measure_result_t *measurement) {
   scope_capture_frame_t frame = {0};
   const signal_gen_dac_status_t *dac = signal_gen_dac_current();
-  uint16_t panel = lcd_rgb565(7, 16, 34);
-  uint16_t border = lcd_rgb565(54, 122, 178);
-  uint16_t accent = lcd_rgb565(255, 182, 86);
-  uint16_t text = lcd_rgb565(236, 246, 255);
-  char line[40];
   uint32_t now = HAL_GetTick();
 
   (void)measurement;
   signal_capture_adc_read_frame(&frame, now);
 
-  lcd_draw_card(18, 14, 198, 38, border, panel, accent);
-  lcd_draw_card(222, 14, 116, 38, border, panel, accent);
-  lcd_draw_string(26, 20, "XY MODE", text, panel, 1);
-  lcd_draw_string(26, 30, "X=CH-A(PA0)", text, panel, 1);
-  lcd_draw_string(26, 40, "Y=CH-B(PA6)", text, panel, 1);
-  lcd_draw_string(230, 20, "OUTPUT", text, panel, 1);
-  (void)snprintf(line, sizeof(line), "%s %luHZ",
-                 waveform_short_name(dac->waveform),
-                 (unsigned long)dac->frequency_hz);
-  lcd_draw_string(230, 30, line, accent, panel, 1);
-  lcd_draw_string(230, 40, "PA4/PA5 DAC", text, panel, 1);
-
+  lcd_draw_xy_info(dac);
   lcd_draw_xy_trace(&frame);
   lcd_draw_footer(ui);
 }

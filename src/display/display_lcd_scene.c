@@ -62,7 +62,6 @@ static void lcd_format_status(lcd_status_view_t *view,
   scope_capture_frame_t frame = {0};
   const signal_gen_dac_status_t *dac = signal_gen_dac_current();
   uint32_t now = HAL_GetTick();
-  const char *wave = dac->waveform == APP_DAC_WAVE_TRIANGLE ? "TRI" : "SQR";
   (void)measurement;
 
   signal_capture_adc_read_frame(&frame, now);
@@ -70,10 +69,9 @@ static void lcd_format_status(lcd_status_view_t *view,
   (void)snprintf(view->header, sizeof(view->header), "REAL-TIME WAVEFORM");
   (void)snprintf(view->set_line, sizeof(view->set_line),
                  "DAC %s F=%luHZ  VIEW=%s",
-                 wave,
+                 signal_gen_dac_waveform_short_name(dac->waveform),
                  (unsigned long)dac->frequency_hz,
                  lcd_scene == LCD_SCENE_XY ? "XY" : "YT");
-
   if (frame.ch_a.valid || frame.ch_b.valid) {
     (void)snprintf(view->meas_line, sizeof(view->meas_line),
                    "ADC CH-A=%s CH-B=%s",

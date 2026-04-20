@@ -9,18 +9,6 @@
 
 static ui_ctrl_view_t *actions_view;
 
-static const char *waveform_short_name(dac_waveform_t waveform) {
-  switch (waveform) {
-    case APP_DAC_WAVE_TRIANGLE:
-      return "TRI";
-    case APP_DAC_WAVE_SQUARE:
-      return "SQR";
-    case APP_DAC_WAVE_SINE:
-    default:
-      return "UNK";
-  }
-}
-
 void ui_actions_init(ui_ctrl_view_t *view) {
   actions_view = view;
 }
@@ -69,7 +57,7 @@ void apply_pending_config(void) {
   (void)snprintf(actions_view->footer,
                  sizeof(actions_view->footer),
                  "APPLIED %s %luHZ",
-                 waveform_short_name(actions_view->active_config.waveform),
+                 signal_gen_dac_waveform_short_name(actions_view->active_config.waveform),
                  (unsigned long)actions_view->active_config.frequency_hz);
   display_status();
 }

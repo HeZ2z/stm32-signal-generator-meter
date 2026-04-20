@@ -6,6 +6,18 @@
 #include "main.h"
 #include "signal_gen/signal_gen_dac_logic.h"
 
+const char *signal_gen_dac_waveform_short_name(dac_waveform_t waveform) {
+  switch (waveform) {
+    case APP_DAC_WAVE_TRIANGLE:
+      return "TRI";
+    case APP_DAC_WAVE_SQUARE:
+      return "SQR";
+    case APP_DAC_WAVE_SINE:
+    default:
+      return "UNK";
+  }
+}
+
 static DAC_HandleTypeDef dac_handle;
 static TIM_HandleTypeDef dac_trigger_timer;
 static signal_gen_dac_status_t dac_status;
