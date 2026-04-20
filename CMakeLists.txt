@@ -10,8 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(PROJECT_TARGET firmware)
 
-set(STM32CUBE_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/third_party/STM32CubeF4")
-set(STM32_DRIVERS_DIR "${STM32CUBE_ROOT}/Drivers")
+set(STM32_DRIVERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/STM32F4xx_HAL_Driver")
 
 set(PROJECT_SOURCES
     src/app/app.c
@@ -43,27 +42,27 @@ set(PROJECT_SOURCES
     src/ui/ui_ctrl.c
     src/ui/ui_touch_map.c
     src/ui/ui_actions.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_adc_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_cortex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dac.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dac_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_dma.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_flash_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_gpio.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_ltdc_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_pwr_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_rcc_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_sdram.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_ll_fmc.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_tim_ex.c
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Src/stm32f4xx_hal_uart.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_adc.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_adc_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_cortex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_dac.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_dac_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_dma.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_flash.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_flash_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_gpio.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_ltdc.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_ltdc_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_pwr.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_pwr_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_rcc.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_rcc_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_sdram.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_ll_fmc.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_tim.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_tim_ex.c
+    ${STM32_DRIVERS_DIR}/Src/stm32f4xx_hal_uart.c
     startup/startup_stm32f429xx.s
 )
 
@@ -72,10 +71,10 @@ add_executable(${PROJECT_TARGET}.elf ${PROJECT_SOURCES})
 target_include_directories(${PROJECT_TARGET}.elf PRIVATE
     include
     src
-    ${STM32_DRIVERS_DIR}/CMSIS/Include
-    ${STM32_DRIVERS_DIR}/CMSIS/Device/ST/STM32F4xx/Include
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Inc
-    ${STM32_DRIVERS_DIR}/STM32F4xx_HAL_Driver/Inc/Legacy
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cmsis_device_f4/Include
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/CMSIS_6/CMSIS/Core/Include
+    ${STM32_DRIVERS_DIR}/Inc
+    ${STM32_DRIVERS_DIR}/Inc/Legacy
 )
 
 target_compile_definitions(${PROJECT_TARGET}.elf PRIVATE

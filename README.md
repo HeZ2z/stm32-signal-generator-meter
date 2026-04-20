@@ -35,8 +35,8 @@
 
 当前规划继续交付：
 
-8. `triangle` 与 `square` 双波形输出
-9. 最小 `XY` 模式与后续李萨如图形演示
+1. `triangle` 与 `square` 双波形输出
+2. 最小 `XY` 模式与后续李萨如图形演示
 
 ## 为什么选这个题目
 
@@ -153,19 +153,25 @@ LCD 集成分析见 [docs/lcd-integration-notes.md](docs/lcd-integration-notes.m
 3. 在 [docs/decision-log.md](docs/decision-log.md) 中记录最终采用 `F4` 还是 `F7`
 4. 本机构建最小工程：
 
-```bash
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja
-cmake --build build
-```
+    ```bash
+    cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja
+    cmake --build build
+    ```
 
-5. 串口监听：
+5. 烧录
 
-```bash
-python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
-```
+    ```bash
+    sudo stm32flash -b 115200 -w build/firmware.bin -v /dev/ttyUSB0
+    ```
 
-6. 先验证 `UART` 和 LCD 触摸，再验证 `PA4 -> PA0`、`PA5 -> PA6` 的 M9 主回路；`PB6 -> PA7` 仅作为 legacy 回归链路
-7. 先跑宿主机逻辑测试：
+6. 串口监听：
+
+    ```bash
+    python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
+    ```
+
+7. 先验证 `UART` 和 LCD 触摸，再验证 `PA4 -> PA0`、`PA5 -> PA6` 的 M9 主回路；`PB6 -> PA7` 仅作为 legacy 回归链路
+8. 先跑宿主机逻辑测试：
 
 ```bash
 ./tests/run_host_tests.sh
@@ -179,8 +185,8 @@ cmake --build build-host-tests
 ctest --test-dir build-host-tests --output-on-failure
 ```
 
-8. 串口观察 `status`、`freq <hz>` 与 LCD 触摸切换/调频输出是否符合当前 M10 语义；`duty <1-99>` 仅用于提示当前 DAC 模式不可调
-9. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
+1. 串口观察 `status`、`freq <hz>` 与 LCD 触摸切换/调频输出是否符合当前 M10 语义；`duty <1-99>` 仅用于提示当前 DAC 模式不可调
+2. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
 
 ## CI
 
