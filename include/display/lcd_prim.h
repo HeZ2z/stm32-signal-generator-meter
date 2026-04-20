@@ -22,6 +22,8 @@
 #define LCD_MORE_HEIGHT 144U
 
 /* 基础绘图原语。 */
+void lcd_prim_backend_init(void);
+bool lcd_prim_dma2d_ready(void);
 uint16_t lcd_rgb565(uint8_t red, uint8_t green, uint8_t blue);
 void lcd_plot(uint16_t x, uint16_t y, uint16_t color);
 void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color);

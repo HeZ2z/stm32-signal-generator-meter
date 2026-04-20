@@ -5,13 +5,83 @@
 
 #include "board/board_config.h"
 #include "display/lcd_font.h"
+#include "stm32f4xx_ll_dma2d.h"
 #include "ui/ui_ctrl.h"
 
 /* Apollo F429 将 LTDC 单层帧缓冲直接映射到外部 SDRAM 首地址。 */
 static uint16_t *const framebuffer = (uint16_t *)APP_LCD_FRAMEBUFFER_ADDRESS;
+static bool lcd_dma2d_available;
+
+#define LCD_DMA2D_MIN_AREA 128U
 
 uint16_t lcd_rgb565(uint8_t red, uint8_t green, uint8_t blue) {
   return (uint16_t)(((red & 0xF8U) << 8) | ((green & 0xFCU) << 3) | (blue >> 3));
+}
+
+static void lcd_fill_rect_cpu(uint16_t x,
+                              uint16_t y,
+                              uint16_t width,
+                              uint16_t height,
+                              uint16_t color) {
+  for (uint16_t row = 0; row < height; ++row) {
+    if ((y + row) >= APP_LCD_HEIGHT) {
+      break;
+    }
+    for (uint16_t col = 0; col < width; ++col) {
+      if ((x + col) >= APP_LCD_WIDTH) {
+        break;
+      }
+      framebuffer[((y + row) * APP_LCD_WIDTH) + (x + col)] = color;
+    }
+  }
+}
+
+static bool lcd_fill_rect_dma2d(uint16_t x,
+                                uint16_t y,
+                                uint16_t width,
+                                uint16_t height,
+                                uint16_t color) {
+  uint32_t start_ms = HAL_GetTick();
+
+  if (!lcd_dma2d_available || ((uint32_t)width * (uint32_t)height) < LCD_DMA2D_MIN_AREA) {
+    return false;
+  }
+
+  LL_DMA2D_Abort(DMA2D);
+  LL_DMA2D_SetMode(DMA2D, LL_DMA2D_MODE_R2M);
+  LL_DMA2D_SetOutputColorMode(DMA2D, LL_DMA2D_OUTPUT_MODE_RGB565);
+  LL_DMA2D_SetOutputColor(DMA2D, (uint32_t)color);
+  LL_DMA2D_SetOutputMemAddr(
+      DMA2D, (uint32_t)&framebuffer[((uint32_t)y * APP_LCD_WIDTH) + x]);
+  LL_DMA2D_SetLineOffset(DMA2D, APP_LCD_WIDTH - width);
+  MODIFY_REG(DMA2D->NLR,
+             DMA2D_NLR_NL | DMA2D_NLR_PL,
+             ((uint32_t)height << DMA2D_NLR_NL_Pos) |
+                 ((uint32_t)width << DMA2D_NLR_PL_Pos));
+  LL_DMA2D_Start(DMA2D);
+  while (LL_DMA2D_IsTransferOngoing(DMA2D) != 0U) {
+    if ((HAL_GetTick() - start_ms) > 20U) {
+      LL_DMA2D_Abort(DMA2D);
+      lcd_dma2d_available = false;
+      return false;
+    }
+  }
+  return true;
+}
+
+void lcd_prim_backend_init(void) {
+#if APP_LCD_USE_DMA2D
+  __HAL_RCC_DMA2D_CLK_ENABLE();
+  __HAL_RCC_DMA2D_FORCE_RESET();
+  __HAL_RCC_DMA2D_RELEASE_RESET();
+  lcd_dma2d_available = true;
+#else
+  lcd_dma2d_available = false;
+#endif
+}
+
+bool lcd_prim_dma2d_ready(void) {
+  return lcd_dma2d_available;
 }
 
 void lcd_plot(uint16_t x, uint16_t y, uint16_t color) {
@@ -22,16 +92,18 @@ void lcd_plot(uint16_t x, uint16_t y, uint16_t color) {
 }
 
 void lcd_fill_rect(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint16_t color) {
-  for (uint16_t row = 0; row < height; ++row) {
-    if ((y + row) >= APP_LCD_HEIGHT) {
-      break;
-    }
-    for (uint16_t col = 0; col < width; ++col) {
-      if ((x + col) >= APP_LCD_WIDTH) {
-        break;
-      }
-      lcd_plot((uint16_t)(x + col), (uint16_t)(y + row), color);
-    }
+  if (x >= APP_LCD_WIDTH || y >= APP_LCD_HEIGHT || width == 0U || height == 0U) {
+    return;
+  }
+  if ((uint32_t)x + width > APP_LCD_WIDTH) {
+    width = (uint16_t)(APP_LCD_WIDTH - x);
+  }
+  if ((uint32_t)y + height > APP_LCD_HEIGHT) {
+    height = (uint16_t)(APP_LCD_HEIGHT - y);
+  }
+
+  if (!lcd_fill_rect_dma2d(x, y, width, height, color)) {
+    lcd_fill_rect_cpu(x, y, width, height, color);
   }
 }
 
