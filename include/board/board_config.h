@@ -27,6 +27,7 @@
 /* M9 DAC 主链路复用同一频率边界。 */
 #define APP_DAC_MIN_FREQ_HZ APP_PWM_MIN_FREQ_HZ
 #define APP_DAC_MAX_FREQ_HZ APP_PWM_MAX_FREQ_HZ
+#define APP_DAC_WAVE_TABLE_SIZE 256U
 
 /* 输入捕获统一使用 1 MHz 计时基准，便于直接换算为 us。 */
 #define APP_TIMER_TICK_HZ 1000000U

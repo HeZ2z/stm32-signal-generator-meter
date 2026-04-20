@@ -10,26 +10,42 @@ static DAC_HandleTypeDef dac_handle;
 static TIM_HandleTypeDef dac_trigger_timer;
 static signal_gen_dac_status_t dac_status;
 
-static uint32_t dual_square_wave[2];
+static uint32_t dual_waveform_table[APP_DAC_WAVE_TABLE_SIZE];
 
-static void configure_tim6(uint32_t output_frequency_hz) {
+static void rebuild_waveform_buffer(dac_waveform_t waveform) {
+  for (uint32_t i = 0U; i < APP_DAC_WAVE_TABLE_SIZE; ++i) {
+    uint16_t level = 0U;
+
+    if (waveform == APP_DAC_WAVE_TRIANGLE) {
+      if (i < (APP_DAC_WAVE_TABLE_SIZE / 2U)) {
+        level = (uint16_t)((4095U * i) / ((APP_DAC_WAVE_TABLE_SIZE / 2U) - 1U));
+      } else {
+        uint32_t down = i - (APP_DAC_WAVE_TABLE_SIZE / 2U);
+        level = (uint16_t)(4095U -
+                           ((4095U * down) /
+                            ((APP_DAC_WAVE_TABLE_SIZE / 2U) - 1U)));
+      }
+    } else {
+      level = i < (APP_DAC_WAVE_TABLE_SIZE / 2U) ? 0U : 4095U;
+    }
+
+    dual_waveform_table[i] = signal_gen_dac_pack_dual_12b(level, level);
+  }
+}
+
+static void configure_tim6(dac_waveform_t waveform, uint32_t output_frequency_hz) {
   TIM_MasterConfigTypeDef master_config = {0};
   uint32_t timer_clock = tim_apb1_clock_hz();
-  uint32_t update_hz = 0U;
-  uint32_t period_ticks;
+  signal_gen_dac_tim6_config_t tim6_config = {0};
 
-  if (!signal_gen_dac_compute_tim6_update_hz(output_frequency_hz, &update_hz)) {
-    Error_Handler();
-  }
-
-  period_ticks = timer_clock / update_hz;
-  if (period_ticks < 2U || period_ticks > 65536U) {
+  if (!signal_gen_dac_compute_tim6_config(timer_clock, waveform,
+                                          output_frequency_hz, &tim6_config)) {
     Error_Handler();
   }
 
   dac_trigger_timer.Instance = APP_DAC_TRIGGER_TIM_INSTANCE;
-  dac_trigger_timer.Init.Prescaler = 0U;
-  dac_trigger_timer.Init.Period = period_ticks - 1U;
+  dac_trigger_timer.Init.Prescaler = tim6_config.prescaler;
+  dac_trigger_timer.Init.Period = tim6_config.period;
   dac_trigger_timer.Init.CounterMode = TIM_COUNTERMODE_UP;
   dac_trigger_timer.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   dac_trigger_timer.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -58,9 +74,8 @@ static void start_dual_dma(void) {
   dac_handle.DMA_Handle1->XferHalfCpltCallback = NULL;
   dac_handle.DMA_Handle1->XferErrorCallback = NULL;
 
-  if (HAL_DMA_Start(dac_handle.DMA_Handle1, (uint32_t)dual_square_wave, target,
-                    (uint32_t)(sizeof(dual_square_wave) /
-                               sizeof(dual_square_wave[0]))) != HAL_OK) {
+  if (HAL_DMA_Start(dac_handle.DMA_Handle1, (uint32_t)dual_waveform_table, target,
+                    APP_DAC_WAVE_TABLE_SIZE) != HAL_OK) {
     Error_Handler();
   }
 
@@ -80,8 +95,7 @@ void signal_gen_dac_init(void) {
     Error_Handler();
   }
 
-  dual_square_wave[0] = signal_gen_dac_pack_dual_12b(0U, 0U);
-  dual_square_wave[1] = signal_gen_dac_pack_dual_12b(4095U, 4095U);
+  rebuild_waveform_buffer(APP_DAC_WAVE_SQUARE);
 
   channel_config.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   channel_config.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
@@ -111,7 +125,8 @@ bool signal_gen_dac_apply(const signal_gen_dac_config_t *config) {
     (void)HAL_DMA_Abort(dac_handle.DMA_Handle1);
   }
 
-  configure_tim6(config->frequency_hz);
+  rebuild_waveform_buffer(config->waveform);
+  configure_tim6(config->waveform, config->frequency_hz);
   start_dual_dma();
 
   dac_status.active = true;
