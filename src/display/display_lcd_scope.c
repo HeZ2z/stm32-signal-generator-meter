@@ -23,6 +23,18 @@ typedef struct {
   uint8_t duty_percent;
 } lcd_scope_card_status_t;
 
+static const char *waveform_short_name(dac_waveform_t waveform) {
+  switch (waveform) {
+    case APP_DAC_WAVE_TRIANGLE:
+      return "TRI";
+    case APP_DAC_WAVE_SQUARE:
+      return "SQR";
+    case APP_DAC_WAVE_SINE:
+    default:
+      return "UNK";
+  }
+}
+
 static bool build_trace_from_snapshot(const scope_capture_snapshot_t *snapshot,
                                       scope_render_trace_t *trace) {
   if (snapshot == NULL || !snapshot->valid) {
@@ -55,6 +67,7 @@ static void draw_trace(const scope_render_trace_t *trace, uint16_t color) {
 
 static lcd_scope_card_status_t build_card_status(
     const scope_capture_snapshot_t *snapshot,
+    dac_waveform_t waveform,
     uint32_t config_hz) {
   lcd_scope_card_status_t status = {
       .state = LCD_SCOPE_CARD_NO_SIGNAL,
@@ -62,8 +75,6 @@ static lcd_scope_card_status_t build_card_status(
       .duty_percent = 0U,
   };
   scope_square_wave_estimate_t estimate = {0};
-  uint32_t min_frequency_hz = 0U;
-  uint32_t max_frequency_hz = 0U;
   uint32_t sample_rate_hz = lcd_scope_adc_sample_rate_hz();
   bool within_window = false;
 
@@ -71,10 +82,16 @@ static lcd_scope_card_status_t build_card_status(
     return status;
   }
 
+  if (waveform == APP_DAC_WAVE_TRIANGLE) {
+    status.state = LCD_SCOPE_CARD_OUT_OF_WINDOW;
+    status.frequency_hz = config_hz;
+    return status;
+  }
+
   within_window = scope_square_wave_frequency_window(snapshot->sample_count,
                                                      sample_rate_hz,
-                                                     &min_frequency_hz,
-                                                     &max_frequency_hz);
+                                                     NULL,
+                                                     NULL);
   if (!within_window) {
     status.state = LCD_SCOPE_CARD_OUT_OF_WINDOW;
     status.frequency_hz = config_hz;
@@ -237,9 +254,11 @@ static void lcd_draw_info_cards(const signal_gen_dac_status_t *dac,
   uint16_t warn = lcd_rgb565(255, 208, 116);
   char line[48];
   lcd_scope_card_status_t status_a =
-      build_card_status(frame != NULL ? &frame->ch_a : NULL, dac->frequency_hz);
+      build_card_status(frame != NULL ? &frame->ch_a : NULL, dac->waveform,
+                        dac->frequency_hz);
   lcd_scope_card_status_t status_b =
-      build_card_status(frame != NULL ? &frame->ch_b : NULL, dac->frequency_hz);
+      build_card_status(frame != NULL ? &frame->ch_b : NULL, dac->waveform,
+                        dac->frequency_hz);
 
   lcd_scope_state.estimate_a.valid =
       status_a.state == LCD_SCOPE_CARD_ESTIMABLE;
@@ -284,8 +303,9 @@ static void lcd_draw_info_cards(const signal_gen_dac_status_t *dac,
 
   lcd_draw_string(230, 20, "OUTPUT", text, panel, 1);
   lcd_draw_string(230, 30, "PA4/PA5 DAC1/2", output_accent, panel, 1);
-  (void)snprintf(line, sizeof(line), "F=%luHZ SQ 50%%",
-                 (unsigned long)dac->frequency_hz);
+  (void)snprintf(line, sizeof(line), "F=%luHZ %s",
+                 (unsigned long)dac->frequency_hz,
+                 waveform_short_name(dac->waveform));
   lcd_draw_string(230, 40, line, text, panel, 1);
 }
 

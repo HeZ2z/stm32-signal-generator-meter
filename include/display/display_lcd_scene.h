@@ -7,9 +7,12 @@
 #include "signal_measure/signal_measure.h"
 #include "ui/ui_ctrl.h"
 
+#define LCD_SPLASH_DURATION_MS 1800U
+
 typedef enum {
   LCD_SCENE_SPLASH = 0,
   LCD_SCENE_CONTROL,
+  LCD_SCENE_XY,
 } lcd_scene_t;
 
 extern lcd_scene_t lcd_scene;

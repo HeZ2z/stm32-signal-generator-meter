@@ -1,5 +1,6 @@
 #include "display/display_lcd_scene.h"
 #include "display/display_lcd_scope.h"
+#include "display/display_lcd_xy.h"
 
 #include <stdint.h>
 #include <stdio.h>
@@ -11,7 +12,6 @@
 #include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen_dac.h"
 
-#define LCD_SPLASH_DURATION_MS 1800U
 #define LCD_DYNAMIC_REFRESH_MS APP_SCOPE_LCD_REFRESH_MS
 #define LCD_BUTTON_COUNT 6
 
@@ -62,14 +62,17 @@ static void lcd_format_status(lcd_status_view_t *view,
   scope_capture_frame_t frame = {0};
   const signal_gen_dac_status_t *dac = signal_gen_dac_current();
   uint32_t now = HAL_GetTick();
+  const char *wave = dac->waveform == APP_DAC_WAVE_TRIANGLE ? "TRI" : "SQR";
   (void)measurement;
 
   signal_capture_adc_read_frame(&frame, now);
 
   (void)snprintf(view->header, sizeof(view->header), "REAL-TIME WAVEFORM");
   (void)snprintf(view->set_line, sizeof(view->set_line),
-                 "DAC F=%luHZ SQ 50%%",
-                 (unsigned long)dac->frequency_hz);
+                 "DAC %s F=%luHZ  VIEW=%s",
+                 wave,
+                 (unsigned long)dac->frequency_hz,
+                 lcd_scene == LCD_SCENE_XY ? "XY" : "YT");
 
   if (frame.ch_a.valid || frame.ch_b.valid) {
     (void)snprintf(view->meas_line, sizeof(view->meas_line),
@@ -228,7 +231,11 @@ void lcd_restore_more_overlay(const ui_ctrl_view_t *ui,
                     ui->highlight == lcd_buttons[i].id);
   }
 
-  lcd_draw_control_dynamic(ui, measurement);
+  if (lcd_scene == LCD_SCENE_XY) {
+    lcd_draw_xy_dynamic(ui, measurement);
+  } else {
+    lcd_draw_control_dynamic(ui, measurement);
+  }
 }
 
 void lcd_render_ui(const ui_ctrl_view_t *ui,
@@ -267,7 +274,7 @@ void lcd_render_ui(const ui_ctrl_view_t *ui,
 
   if (scene_changed && lcd_scene == LCD_SCENE_SPLASH) {
     lcd_draw_splash();
-  } else if (lcd_scene == LCD_SCENE_CONTROL) {
+  } else if (lcd_scene == LCD_SCENE_CONTROL || lcd_scene == LCD_SCENE_XY) {
     uint32_t now = HAL_GetTick();
     bool overlay_open = ui->more_open;
     bool force_refresh = scene_changed || more_changed || highlight_changed ||
@@ -278,7 +285,11 @@ void lcd_render_ui(const ui_ctrl_view_t *ui,
 
     if (scene_changed) {
       lcd_draw_control_static(ui);
-      lcd_draw_control_dynamic(ui, measurement);
+      if (lcd_scene == LCD_SCENE_XY) {
+        lcd_draw_xy_dynamic(ui, measurement);
+      } else {
+        lcd_draw_control_dynamic(ui, measurement);
+      }
       if (overlay_open) {
         lcd_draw_more_overlay();
       }
@@ -298,13 +309,21 @@ void lcd_render_ui(const ui_ctrl_view_t *ui,
         lcd_redraw_button((int)ui->highlight, true);
       }
 
-      if ((((freq_changed || meas_changed || err_changed) &&
-            !overlay_open) ||
-           ((footer_changed || touch_changed || allow_measure_refresh) &&
-            !overlay_open))) {
-        lcd_draw_control_dynamic(ui, measurement);
-      } else if (footer_changed || touch_changed) {
-        lcd_draw_footer(ui);
+      {
+        bool content_changed = freq_changed || meas_changed || err_changed;
+        bool footer_refresh = footer_changed || touch_changed;
+        bool should_redraw_dynamic =
+            !overlay_open && (content_changed || footer_refresh || allow_measure_refresh);
+
+        if (should_redraw_dynamic) {
+        if (lcd_scene == LCD_SCENE_XY) {
+          lcd_draw_xy_dynamic(ui, measurement);
+        } else {
+          lcd_draw_control_dynamic(ui, measurement);
+        }
+        } else if (footer_refresh) {
+          lcd_draw_footer(ui);
+        }
       }
       if (allow_measure_refresh && !overlay_open) {
         lcd_last_dynamic_refresh_ms = now;

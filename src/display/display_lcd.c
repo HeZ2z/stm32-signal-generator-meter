@@ -11,8 +11,6 @@
 #include "signal_gen/signal_gen_dac.h"
 #include "ui/ui_ctrl.h"
 
-#define LCD_SPLASH_DURATION_MS 1800U
-
 void display_lcd_init(void) {
   display_lcd_scope_init();
   display_lcd_hw_init();
@@ -55,6 +53,7 @@ void display_lcd_help(void) {
 
 void display_lcd_status(void) {
   const ui_ctrl_view_t *ui = ui_ctrl_view();
+  lcd_scene_t target_scene = LCD_SCENE_CONTROL;
 
   if (!lcd_hw_ready || ui == NULL) {
     return;
@@ -64,6 +63,13 @@ void display_lcd_status(void) {
       lcd_scene_started_ms != 0U &&
       (HAL_GetTick() - lcd_scene_started_ms) >= LCD_SPLASH_DURATION_MS) {
     display_lcd_scene_set(LCD_SCENE_CONTROL);
+  }
+
+  if (lcd_scene != LCD_SCENE_SPLASH) {
+    target_scene = ui->screen == UI_SCREEN_XY ? LCD_SCENE_XY : LCD_SCENE_CONTROL;
+    if (lcd_scene != target_scene) {
+      display_lcd_scene_set(target_scene);
+    }
   }
 
   lcd_render_ui(ui, signal_measure_latest());
