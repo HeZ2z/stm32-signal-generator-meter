@@ -72,7 +72,7 @@ static lcd_scope_card_status_t build_card_status(
     return status;
   }
 
-  if (waveform == APP_DAC_WAVE_TRIANGLE) {
+  if (waveform == APP_DAC_WAVE_TRIANGLE || waveform == APP_DAC_WAVE_SINE) {
     status.state = LCD_SCOPE_CARD_OUT_OF_WINDOW;
     status.frequency_hz = config_hz;
     return status;

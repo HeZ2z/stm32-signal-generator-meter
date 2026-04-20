@@ -1,7 +1,10 @@
 #include "ui/ui_actions.h"
 
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
+
+#define _APP_PI_ 3.14159265358979f
 
 #include "board/board_config.h"
 #include "display/display.h"
@@ -20,7 +23,8 @@ signal_gen_dac_config_t clamp_config(signal_gen_dac_config_t config) {
     config.frequency_hz = APP_DAC_MAX_FREQ_HZ;
   }
   if (config.waveform != APP_DAC_WAVE_SQUARE &&
-      config.waveform != APP_DAC_WAVE_TRIANGLE) {
+      config.waveform != APP_DAC_WAVE_TRIANGLE &&
+      config.waveform != APP_DAC_WAVE_SINE) {
     config.waveform = APP_DAC_WAVE_SQUARE;
   }
   return config;
@@ -37,23 +41,41 @@ static void ui_sync_configs(void) {
     const signal_gen_dac_status_t *dac = signal_gen_dac_current();
     actions_view->active_config.frequency_hz = dac->frequency_hz;
     actions_view->active_config.waveform = dac->waveform;
+    actions_view->active_config.ch_b_phase_offset_rad = dac->ch_b_phase_offset_rad;
+    actions_view->active_config.ch_b_frequency_ratio = dac->ch_b_frequency_ratio;
     actions_view->pending_config = actions_view->active_config;
   }
+}
+
+static bool apply_pending_config_with_footer(const char *success_text) {
+  signal_gen_dac_config_t next;
+
+  if (actions_view == NULL) {
+    return false;
+  }
+
+  next = clamp_config(actions_view->pending_config);
+  if (!signal_gen_dac_apply(&next)) {
+    ui_sync_configs();
+    ui_set_footer("APPLY FAILED");
+    return false;
+  }
+
+  ui_sync_configs();
+  if (success_text != NULL) {
+    ui_set_footer(success_text);
+  }
+  return true;
 }
 
 void apply_pending_config(void) {
   if (actions_view == NULL) {
     return;
   }
-  signal_gen_dac_config_t next = clamp_config(actions_view->pending_config);
-
-  if (!signal_gen_dac_apply(&next)) {
-    ui_sync_configs();
-    ui_set_footer("APPLY FAILED");
+  if (!apply_pending_config_with_footer(NULL)) {
     return;
   }
 
-  ui_sync_configs();
   (void)snprintf(actions_view->footer,
                  sizeof(actions_view->footer),
                  "APPLIED %s %luHZ",
@@ -84,10 +106,12 @@ void toggle_waveform(void) {
     return;
   }
 
-  if (actions_view->pending_config.waveform == APP_DAC_WAVE_TRIANGLE) {
-    actions_view->pending_config.waveform = APP_DAC_WAVE_SQUARE;
-  } else {
+  if (actions_view->pending_config.waveform == APP_DAC_WAVE_SQUARE) {
     actions_view->pending_config.waveform = APP_DAC_WAVE_TRIANGLE;
+  } else if (actions_view->pending_config.waveform == APP_DAC_WAVE_TRIANGLE) {
+    actions_view->pending_config.waveform = APP_DAC_WAVE_SINE;
+  } else {
+    actions_view->pending_config.waveform = APP_DAC_WAVE_SQUARE;
   }
 
   apply_pending_config();
@@ -124,6 +148,34 @@ void handle_ui_command(const ui_cmd_t *cmd) {
       ui_set_footer("DAC DUTY NOT ADJUSTABLE");
       display_refresh_lcd();
       break;
+    case UI_CMD_SET_PHASE: {
+      float phase_rad = (float)cmd->value / 100.0f;
+      float clamped = phase_rad;
+      if (clamped < 0.0f) {
+        clamped = 0.0f;
+      } else if (clamped > (2.0f * _APP_PI_)) {
+        clamped = 2.0f * _APP_PI_;
+      }
+      actions_view->pending_config.ch_b_phase_offset_rad = clamped;
+      if (apply_pending_config_with_footer("UART SET PHASE OK")) {
+        display_status();
+      }
+      break;
+    }
+    case UI_CMD_SET_RATIO: {
+      uint8_t ratio = (uint8_t)cmd->value;
+      if (ratio == 0U) {
+        ratio = 1U;
+      }
+      if (ratio > 9U) {
+        ratio = 9U;
+      }
+      actions_view->pending_config.ch_b_frequency_ratio = ratio;
+      if (apply_pending_config_with_footer("UART SET RATIO OK")) {
+        display_status();
+      }
+      break;
+    }
     case UI_CMD_INVALID:
       display_write("ERR unknown command\r\n");
       display_help();

@@ -50,6 +50,18 @@ bool ui_cmd_parse(const char *line, ui_cmd_t *cmd) {
     return true;
   }
 
+  if (sscanf(cursor, "phase %lu", &value) == 1) {
+    cmd->kind = UI_CMD_SET_PHASE;
+    cmd->value = (uint32_t)value;
+    return true;
+  }
+
+  if (sscanf(cursor, "ratio %lu", &value) == 1) {
+    cmd->kind = UI_CMD_SET_RATIO;
+    cmd->value = (uint32_t)value;
+    return true;
+  }
+
   return false;
 }
 

@@ -104,10 +104,9 @@ void display_uart_boot_banner(void) {
 
 /* 帮助信息保持纯文本，方便普通串口工具直接查看。 */
 void display_uart_help(void) {
-  display_uart_write("Commands: help | status | freq <hz> | duty <1-99> (info only)\r\n");
+  display_uart_write("Commands: help | status | freq <hz> | duty <1-99> | phase <0-628> | ratio <1-9>\r\n");
   display_uart_write("Touch: tap F-1K F+1K WAVE YT/XY RESET MORE on LCD\r\n");
-  display_uart_write("M10: square / triangle, duty command is recognized but not adjustable\r\n");
-  display_uart_write("MORE: show project info on LCD, help stays on UART\r\n");
+  display_uart_write("M11: square / triangle / sine, phase (centi-radian, 0-628) and ratio (CH-B freq ratio)\r\n");
   display_uart_write("Loopback: PA4(DAC1)->PA0(ADC1) and PA5(DAC2)->PA6(ADC1)\r\n");
 }
 
@@ -127,6 +126,8 @@ void display_uart_status(void) {
 
   if (dac->waveform == APP_DAC_WAVE_TRIANGLE) {
     wave = "TRIANGLE";
+  } else if (dac->waveform == APP_DAC_WAVE_SINE) {
+    wave = "SINE";
   }
   if (ui != NULL && ui->screen == UI_SCREEN_XY) {
     view = "XY";
@@ -134,9 +135,11 @@ void display_uart_status(void) {
 
   int written = snprintf(
       buffer, sizeof(buffer),
-      "DAC %s freq=%luHz | VIEW %s | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
+      "DAC %s freq=%luHz phase=%d ratio=%u | VIEW %s | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
       wave,
       (unsigned long)dac->frequency_hz,
+      (int)(dac->ch_b_phase_offset_rad * 100.0f),
+      dac->ch_b_frequency_ratio == 0U ? 1U : dac->ch_b_frequency_ratio,
       view,
       frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
       frame.ch_b.valid ? "LIVE" : "NO-SIGNAL",

@@ -42,6 +42,20 @@ static void test_parse_duty(void) {
   expect(cmd.value == 30U, "duty value");
 }
 
+static void test_parse_phase(void) {
+  ui_cmd_t cmd;
+  expect(ui_cmd_parse("phase 628", &cmd), "phase should parse");
+  expect(cmd.kind == UI_CMD_SET_PHASE, "phase kind");
+  expect(cmd.value == 628U, "phase value");
+}
+
+static void test_parse_ratio(void) {
+  ui_cmd_t cmd;
+  expect(ui_cmd_parse("ratio 2", &cmd), "ratio should parse");
+  expect(cmd.kind == UI_CMD_SET_RATIO, "ratio kind");
+  expect(cmd.value == 2U, "ratio value");
+}
+
 static void test_parse_invalid(void) {
   ui_cmd_t cmd;
   expect(!ui_cmd_parse("hello", &cmd), "invalid command rejected");
@@ -99,6 +113,8 @@ int main(void) {
   test_parse_status();
   test_parse_freq();
   test_parse_duty();
+  test_parse_phase();
+  test_parse_ratio();
   test_parse_invalid();
   test_parse_leading_space();
   test_push_char();

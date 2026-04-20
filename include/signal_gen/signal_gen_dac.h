@@ -14,12 +14,16 @@ typedef enum {
 typedef struct {
   uint32_t frequency_hz;
   dac_waveform_t waveform;
+  float ch_b_phase_offset_rad;   // 默认 0.0f，弧度，0 ~ 2π
+  uint8_t ch_b_frequency_ratio;  // 默认 0，zero-init 时等价于 1
 } signal_gen_dac_config_t;
 
 typedef struct {
   bool active;
   uint32_t frequency_hz;
   dac_waveform_t waveform;
+  float ch_b_phase_offset_rad;
+  uint8_t ch_b_frequency_ratio;
 } signal_gen_dac_status_t;
 
 /* 初始化双路 DAC 外设与 DMA 传输。 */

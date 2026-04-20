@@ -28,24 +28,43 @@ static signal_gen_dac_status_t dac_status;
 
 static uint32_t dual_waveform_table[APP_DAC_WAVE_TABLE_SIZE];
 
-static void rebuild_waveform_buffer(dac_waveform_t waveform) {
-  for (uint32_t i = 0U; i < APP_DAC_WAVE_TABLE_SIZE; ++i) {
-    uint16_t level = 0U;
-
-    if (waveform == APP_DAC_WAVE_TRIANGLE) {
-      if (i < (APP_DAC_WAVE_TABLE_SIZE / 2U)) {
-        level = (uint16_t)((4095U * i) / ((APP_DAC_WAVE_TABLE_SIZE / 2U) - 1U));
-      } else {
-        uint32_t down = i - (APP_DAC_WAVE_TABLE_SIZE / 2U);
-        level = (uint16_t)(4095U -
-                           ((4095U * down) /
-                            ((APP_DAC_WAVE_TABLE_SIZE / 2U) - 1U)));
-      }
+static uint16_t build_single_level(dac_waveform_t waveform, uint32_t idx) {
+  if (waveform == APP_DAC_WAVE_TRIANGLE) {
+    if (idx < (APP_DAC_WAVE_TABLE_SIZE / 2U)) {
+      return (uint16_t)((4095U * idx) / ((APP_DAC_WAVE_TABLE_SIZE / 2U) - 1U));
     } else {
-      level = i < (APP_DAC_WAVE_TABLE_SIZE / 2U) ? 0U : 4095U;
+      uint32_t down = idx - (APP_DAC_WAVE_TABLE_SIZE / 2U);
+      return (uint16_t)(4095U -
+                         ((4095U * down) / ((APP_DAC_WAVE_TABLE_SIZE / 2U) - 1U)));
     }
+  }
+  if (waveform == APP_DAC_WAVE_SINE) {
+    return (uint16_t)(2047.5f + 2047.0f *
+      sinf((float)idx * (2.0f * _APP_PI_ / (float)APP_DAC_WAVE_TABLE_SIZE)));
+  }
+  return idx < (APP_DAC_WAVE_TABLE_SIZE / 2U) ? 0U : 4095U;
+}
 
-    dual_waveform_table[i] = signal_gen_dac_pack_dual_12b(level, level);
+static uint32_t wrap_wave_table_index(uint32_t idx) {
+  return idx % APP_DAC_WAVE_TABLE_SIZE;
+}
+
+static void rebuild_waveform_buffer(dac_waveform_t waveform,
+                                    float ch_b_phase_offset_rad,
+                                    uint8_t ch_b_frequency_ratio) {
+  uint8_t ratio = (ch_b_frequency_ratio == 0U) ? 1U : ch_b_frequency_ratio;
+  uint32_t ch_b_idx =
+      (uint32_t)((ch_b_phase_offset_rad / (2.0f * _APP_PI_)) *
+                 (float)APP_DAC_WAVE_TABLE_SIZE);
+  ch_b_idx = wrap_wave_table_index(ch_b_idx);
+
+  for (uint32_t i = 0U; i < APP_DAC_WAVE_TABLE_SIZE; ++i) {
+    uint16_t ch_a_level = build_single_level(waveform, i);
+    uint16_t ch_b_level = build_single_level(waveform, ch_b_idx);
+
+    dual_waveform_table[i] = signal_gen_dac_pack_dual_12b(ch_a_level, ch_b_level);
+
+    ch_b_idx = wrap_wave_table_index(ch_b_idx + ratio);
   }
 }
 
@@ -101,6 +120,37 @@ static void start_dual_dma(void) {
   }
 }
 
+static bool stop_dual_dma(void) {
+  if (dac_handle.DMA_Handle1 == NULL) {
+    return false;
+  }
+
+  __HAL_TIM_DISABLE(&dac_trigger_timer);
+
+  if ((dac_handle.Instance->CR & DAC_CR_DMAEN1) == 0U &&
+      dac_handle.DMA_Handle1->State != HAL_DMA_STATE_BUSY) {
+    return true;
+  }
+
+  if ((dac_handle.Instance->CR & DAC_CR_DMAEN1) != 0U) {
+    CLEAR_BIT(dac_handle.Instance->CR, DAC_CR_DMAEN1);
+    for (uint32_t spin = 0U; spin < 1000U; ++spin) {
+      if ((dac_handle.Instance->CR & DAC_CR_DMAEN1) == 0U) {
+        break;
+      }
+    }
+    if ((dac_handle.Instance->CR & DAC_CR_DMAEN1) != 0U) {
+      return false;
+    }
+  }
+
+  if (dac_handle.DMA_Handle1->State != HAL_DMA_STATE_BUSY) {
+    return true;
+  }
+
+  return HAL_DMA_Abort(dac_handle.DMA_Handle1) == HAL_OK;
+}
+
 void signal_gen_dac_init(void) {
   DAC_ChannelConfTypeDef channel_config = {0};
 
@@ -111,7 +161,7 @@ void signal_gen_dac_init(void) {
     Error_Handler();
   }
 
-  rebuild_waveform_buffer(APP_DAC_WAVE_SQUARE);
+  rebuild_waveform_buffer(APP_DAC_WAVE_SQUARE, 0.0f, 0U);
 
   channel_config.DAC_Trigger = DAC_TRIGGER_T6_TRGO;
   channel_config.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
@@ -135,19 +185,21 @@ bool signal_gen_dac_apply(const signal_gen_dac_config_t *config) {
     return false;
   }
 
-  __HAL_TIM_DISABLE(&dac_trigger_timer);
-  CLEAR_BIT(dac_handle.Instance->CR, DAC_CR_DMAEN1);
-  if (dac_handle.DMA_Handle1 != NULL) {
-    (void)HAL_DMA_Abort(dac_handle.DMA_Handle1);
+  if (!stop_dual_dma()) {
+    return false;
   }
 
-  rebuild_waveform_buffer(config->waveform);
+  rebuild_waveform_buffer(config->waveform,
+                          config->ch_b_phase_offset_rad,
+                          config->ch_b_frequency_ratio);
   configure_tim6(config->waveform, config->frequency_hz);
   start_dual_dma();
 
   dac_status.active = true;
   dac_status.frequency_hz = config->frequency_hz;
   dac_status.waveform = config->waveform;
+  dac_status.ch_b_phase_offset_rad = config->ch_b_phase_offset_rad;
+  dac_status.ch_b_frequency_ratio = config->ch_b_frequency_ratio;
   return true;
 }
 
