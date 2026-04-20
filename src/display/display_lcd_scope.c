@@ -76,6 +76,8 @@ static lcd_scope_card_status_t build_card_status(
   };
   scope_square_wave_estimate_t estimate = {0};
   uint32_t sample_rate_hz = lcd_scope_adc_sample_rate_hz();
+  uint32_t min_frequency_hz = 0U;
+  uint32_t max_frequency_hz = 0U;
   bool within_window = false;
 
   if (snapshot == NULL || !snapshot->valid) {
@@ -90,8 +92,8 @@ static lcd_scope_card_status_t build_card_status(
 
   within_window = scope_square_wave_frequency_window(snapshot->sample_count,
                                                      sample_rate_hz,
-                                                     NULL,
-                                                     NULL);
+                                                     &min_frequency_hz,
+                                                     &max_frequency_hz);
   if (!within_window) {
     status.state = LCD_SCOPE_CARD_OUT_OF_WINDOW;
     status.frequency_hz = config_hz;

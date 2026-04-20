@@ -8,6 +8,7 @@
 #include "signal_capture/signal_capture_adc.h"
 #include "signal_gen/signal_gen_dac.h"
 #include "touch/touch.h"
+#include "ui/ui_ctrl.h"
 
 /* 支持同时初始化多组串口，当前默认选择 consoles[0] 作为主控制台。 */
 typedef struct {
@@ -103,9 +104,9 @@ void display_uart_boot_banner(void) {
 
 /* 帮助信息保持纯文本，方便普通串口工具直接查看。 */
 void display_uart_help(void) {
-  display_uart_write("Commands: help | status | freq <hz> | duty <1-99>\r\n");
+  display_uart_write("Commands: help | status | freq <hz> | duty <1-99> (info only)\r\n");
   display_uart_write("Touch: tap F-1K F+1K WAVE YT/XY RESET MORE on LCD\r\n");
-  display_uart_write("M10: square / triangle, duty is not user-adjustable\r\n");
+  display_uart_write("M10: square / triangle, duty command is recognized but not adjustable\r\n");
   display_uart_write("MORE: show project info on LCD, help stays on UART\r\n");
   display_uart_write("Loopback: PA4(DAC1)->PA0(ADC1) and PA5(DAC2)->PA6(ADC1)\r\n");
 }
@@ -117,7 +118,9 @@ void display_uart_status(void) {
   const touch_runtime_t *touch = touch_runtime();
   const signal_gen_dac_status_t *dac = signal_gen_dac_current();
   scope_capture_frame_t frame = {0};
+  const ui_ctrl_view_t *ui = ui_ctrl_view();
   const char *wave = "SQUARE";
+  const char *view = "YT";
   uint32_t now = HAL_GetTick();
 
   signal_capture_adc_read_frame(&frame, now);
@@ -125,12 +128,16 @@ void display_uart_status(void) {
   if (dac->waveform == APP_DAC_WAVE_TRIANGLE) {
     wave = "TRIANGLE";
   }
+  if (ui != NULL && ui->screen == UI_SCREEN_XY) {
+    view = "XY";
+  }
 
   int written = snprintf(
       buffer, sizeof(buffer),
-      "DAC %s freq=%luHz | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
+      "DAC %s freq=%luHz | VIEW %s | ADC CH-A=%s CH-B=%s @%luHz | LCD %s | TOUCH %s%s%s\r\n",
       wave,
       (unsigned long)dac->frequency_hz,
+      view,
       frame.ch_a.valid ? "LIVE" : "NO-SIGNAL",
       frame.ch_b.valid ? "LIVE" : "NO-SIGNAL",
       (unsigned long)signal_capture_adc_channel_sample_rate_hz(),
