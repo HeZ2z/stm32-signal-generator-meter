@@ -57,7 +57,9 @@ static bool apply_pending_config_with_footer(const char *success_text) {
   next = clamp_config(actions_view->pending_config);
   if (!signal_gen_dac_apply(&next)) {
     ui_sync_configs();
-    ui_set_footer("APPLY FAILED");
+    display_write("ERR DAC reconfigure failed\r\n");
+    ui_set_footer("DAC RECONFIG FAIL");
+    display_refresh_lcd();
     return false;
   }
 
