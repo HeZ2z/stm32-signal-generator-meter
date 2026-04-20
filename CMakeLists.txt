@@ -20,6 +20,7 @@ set(PROJECT_SOURCES
     src/display/display_lcd_scene.c
     src/display/display_lcd_scope.c
     src/display/display_lcd_xy.c
+    src/display/display_lcd_xy_logic.c
     src/display/lcd_prim.c
     src/display/lcd_font.c
     src/display/display_uart.c
