@@ -11,7 +11,8 @@ bool signal_gen_dac_config_valid(const signal_gen_dac_config_t *config) {
   }
 
   if (config->waveform != APP_DAC_WAVE_SQUARE &&
-      config->waveform != APP_DAC_WAVE_TRIANGLE) {
+      config->waveform != APP_DAC_WAVE_TRIANGLE &&
+      config->waveform != APP_DAC_WAVE_SINE) {
     return false;
   }
 
@@ -29,7 +30,8 @@ bool signal_gen_dac_compute_tim6_update_hz(dac_waveform_t waveform,
     return false;
   }
 
-  if (waveform != APP_DAC_WAVE_SQUARE && waveform != APP_DAC_WAVE_TRIANGLE) {
+  if (waveform != APP_DAC_WAVE_SQUARE && waveform != APP_DAC_WAVE_TRIANGLE &&
+      waveform != APP_DAC_WAVE_SINE) {
     return false;
   }
 

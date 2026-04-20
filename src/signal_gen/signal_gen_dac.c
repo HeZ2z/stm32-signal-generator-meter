@@ -1,6 +1,9 @@
 #include "signal_gen/signal_gen_dac.h"
 
+#include <math.h>
 #include <string.h>
+
+#define _APP_PI_ 3.14159265358979f
 
 #include "board/board_config.h"
 #include "main.h"
@@ -10,9 +13,10 @@ const char *signal_gen_dac_waveform_short_name(dac_waveform_t waveform) {
   switch (waveform) {
     case APP_DAC_WAVE_TRIANGLE:
       return "TRI";
+    case APP_DAC_WAVE_SINE:
+      return "SIN";
     case APP_DAC_WAVE_SQUARE:
       return "SQR";
-    case APP_DAC_WAVE_SINE:
     default:
       return "UNK";
   }

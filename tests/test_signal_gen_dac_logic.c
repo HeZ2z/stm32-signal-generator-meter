@@ -12,7 +12,7 @@ static void test_validate_square_config(void) {
       .frequency_hz = 1000U, .waveform = APP_DAC_WAVE_TRIANGLE}));
   assert(!signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
       .frequency_hz = 10U, .waveform = APP_DAC_WAVE_SQUARE}));
-  assert(!signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+  assert(signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
       .frequency_hz = 1000U, .waveform = APP_DAC_WAVE_SINE}));
 }
 
@@ -23,8 +23,9 @@ static void test_compute_tim6_update_rate(void) {
   assert(update_hz == 256000U);
   assert(signal_gen_dac_compute_tim6_update_hz(APP_DAC_WAVE_TRIANGLE, 1000U, &update_hz));
   assert(update_hz == 256000U);
-  assert(!signal_gen_dac_compute_tim6_update_hz(APP_DAC_WAVE_SINE, 1000U, &update_hz));
   assert(!signal_gen_dac_compute_tim6_update_hz(APP_DAC_WAVE_SQUARE, 0U, &update_hz));
+  assert(signal_gen_dac_compute_tim6_update_hz(APP_DAC_WAVE_SINE, 1000U, &update_hz));
+  assert(update_hz == 256000U);
 }
 
 static void test_compute_tim6_dividers(void) {
