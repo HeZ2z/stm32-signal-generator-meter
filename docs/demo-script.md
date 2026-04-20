@@ -25,17 +25,17 @@ sudo python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
 DAC SQUARE freq=1000Hz | VIEW YT | ADC CH-A=LIVE CH-B=LIVE @100000Hz | LCD READY | TOUCH READY
 ```
 
-3. 在 LCD 上触摸把频率调整到 `2000Hz`，说明系统已经从默认参数切换到新的目标输出。
+1. 在 LCD 上触摸把频率调整到 `2000Hz`，说明系统已经从默认参数切换到新的目标输出。
 
-4. 观察 LCD 顶部输入卡：
+2. 观察 LCD 顶部输入卡：
    - `CH-A PA4->PA0`
    - `CH-B PA5->PA6`
    两路都应显示真实 `F/D` 或在超窗时显示 `F=<当前输出频率> D=--`
-5. 再通过 LCD 触摸把频率调整到 `5000Hz`。
-6. 观察双 trace 随频率同步变化，且颜色和标签与实际接线一致。
-7. 拔掉 `PA5 -> PA6`，展示 `CH-B` 退化为 `NO SIGNAL`，`CH-A` 继续正常。
-8. 重新接回 `PA5 -> PA6`，说明系统可恢复到正常双通道状态。
-9. 如需兜底演示，可在串口输入 `help`、`status`、`freq <hz>`，证明 `UART` 仍可作为控制入口。
+3. 再通过 LCD 触摸把频率调整到 `5000Hz`。
+4. 观察双 trace 随频率同步变化，且颜色和标签与实际接线一致。
+5. 拔掉 `PA5 -> PA6`，展示 `CH-B` 退化为 `NO SIGNAL`，`CH-A` 继续正常。
+6. 重新接回 `PA5 -> PA6`，说明系统可恢复到正常双通道状态。
+7. 如需兜底演示，可在串口输入 `help`、`status`、`freq <hz>`，证明 `UART` 仍可作为控制入口。
 
 ## M10 演示步骤
 
