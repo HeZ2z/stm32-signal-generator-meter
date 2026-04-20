@@ -4,7 +4,9 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#ifndef HOST_TEST
 #include "stm32f4xx_hal.h"
+#endif
 
 /* 初始化显示子系统，当前先拉起 UART 后端。 */
 void display_init(void);
@@ -29,6 +31,8 @@ void display_status(void);
 /* 仅刷新 LCD 页面，不向 UART 重复写状态。 */
 void display_refresh_lcd(void);
 /* 获取 UI 控制循环使用的主串口句柄。 */
+#ifndef HOST_TEST
 UART_HandleTypeDef *display_uart_handle(void);
+#endif
 
 #endif
