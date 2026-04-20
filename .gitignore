@@ -2,6 +2,9 @@
 /build/
 /build-host-tests/
 /cmake-build-*/
+*/build/
+*/build-host-tests/
+*/cmake-build-*/
 /out/
 /dist/
 /CMakeCache.txt
