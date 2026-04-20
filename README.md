@@ -1,21 +1,21 @@
 # stm32-signal-generator-meter
 
-单板 `STM32F4/F7` 实践项目，当前主线目标是在一周周期内完成一个可演示、可答辩、可稳定运行的 `PWM 输出 + 输入测量 + UART 输出` 闭环固件。
+单板 `STM32F4/F7` 实践项目。当前仓库已经完成 `PWM 输出 + 输入测量 + UART/LCD/触摸 + 双 DAC/双 ADC 双通道 YT` 主链路，并在保留旧主线可编译、可回归的前提下进入 `M10`：继续收敛 `triangle + 最小 XY` 演示链路。
 
 ## 项目状态
 
-- 阶段：`M7 touch tuning integrated`
+- 阶段：`M8 已完成，M9 已完成，M10 已完成，M11 进行中`
 - 开发板：`Apollo STM32 F4/F7`
 - 当前硬件条件：`仅开发板本体，无外接传感器`
-- 当前策略：按 `STM32F429` 路线收敛主固件，优先完成板内回环测量闭环
-- 当前未决项：整理提交并补齐最终文档
+- 当前策略：按 `STM32F429` 路线收敛主固件，并在现有 PWM/测量主线上并行扩展 DAC/ADC 波形显示主线
+- 当前未决项：按 `M10-M11` 推进 `triangle / XY / sine / 李萨如` 演示
   - 当前 LCD 真值基线：`Apollo STM32F429IGT6 + SDRAM Bank1 + framebuffer 0xC0000000`
   - 已落地屏参：`480x272 RGB565`, `9MHz`, `HSYNC 1 / HBP 40 / HFP 5 / VSYNC 1 / VBP 8 / VFP 8`
   - 已完成冲突处理：`PB5` 固定改作 `LCD_BL`，测量输入迁到 `PA7(TIM3_CH2)`
   - 已落地触摸基线：`GT9147/GT9xxx`, `PH6=SCL`, `PI3=SDA`, `PI8=RST`, `PH7=INT`
 
 当前仓库已提供一个基于 `STM32F429 + HAL + CMake` 的主固件，当前主路径包含 `UART + PWM + TIM PWM Input + 串口命令`，时钟默认走 `HSI 16 MHz`，并把板级引脚集中在 `include/board_config.h` 中，便于后续按实物统一修正。
-当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 状态页后端 + `GT9xxx` 触摸调参入口。
+当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 波形页后端 + `GT9xxx` 触摸调参入口。当前默认主演示页已经切到双路 `DAC -> ADC -> LCD` 主链路，`M10` 已完成 `triangle` 与最小 `XY` 页面；当前双通道输出仍固定同频同相，因此 `XY` 主要用于证明真实双通道采样与轨迹绘制链路已打通，完整李萨如演示留给 `M11`。
 
 ## 项目目标
 
@@ -23,7 +23,7 @@
 
 `参数设置 -> 信号输出 -> 信号输入 -> 参数测量 -> 结果显示`
 
-当前主固件优先交付：
+当前已交付主固件：
 
 1. 一个可配置的 `PWM` 方波输出
 2. 测量频率、周期和占空比
@@ -31,6 +31,12 @@
 4. 通过 `UART` 输出设定值和实测值
 5. 为 `ALIENTEK 4342 RGBLCD` 提供并行显示后端，并保留 `UART` 调试兜底
 6. 通过 `GT9xxx` 电容触摸在 LCD 上直接调整频率和占空比
+7. 通过 `ADC1 + DMA` 在 LCD 上显示真实采样 `YT` 波形
+
+当前规划继续交付：
+
+1. `triangle` 与 `square` 双波形输出
+2. 最小 `XY` 模式与后续李萨如图形演示
 
 ## 为什么选这个题目
 
@@ -42,7 +48,7 @@
 
 ## 当前最小可行范围
 
-当前主线只做最小可演示固件：
+当前已完成的最小可演示固件：
 
 1. 输出可配置频率和占空比的 `PWM`
 2. 通过 `TIM PWM Input` 测量回环信号
@@ -51,7 +57,7 @@
 5. 用 `LED` 心跳证明主循环稳定运行
 6. 用宿主机侧小测试覆盖命令解析、`PWM` 参数换算和测量结果换算逻辑
 
-推荐验证方式：
+当前主线推荐验证方式：
 
 - 使用杜邦线连接 `PB6(TIM4_CH1)` 到 `PA7(TIM3_CH2)`
 - 用串口工具观察 `SET` 与 `MEAS` 输出
@@ -59,15 +65,18 @@
 
 ## 技术路线
 
-- 输出路径：`TIM + PWM`
-- 输入路径：`TIM PWM Input`
+- 输出路径：当前为 `TIM + PWM`，后续扩展 `DAC`
+- 输入路径：当前并行包含 `TIM PWM Input` 和 `ADC + DMA` 双通道真实采样
 - 控制路径：`UART 命令 + GT9xxx 触摸按键`
-- 显示路径：`UART` 主通道，`ALIENTEK 4342 RGBLCD` 已接入状态页与触摸界面
+- 显示路径：`UART` 主通道，`ALIENTEK 4342 RGBLCD` 已接入双通道 `YT` 波形页与最小 `XY` 页面，触摸负责切换与调参
 - 软件结构：
-  - `signal_gen`：信号产生
-  - `signal_measure`：输入测量
+  - `signal_gen`：当前 PWM 信号产生
+  - `signal_measure`：当前输入测量
+  - `signal_gen_dac`：当前双 DAC 波形产生
+  - `signal_capture_adc`：当前双通道 ADC 采样
+  - `scope_render`：当前双通道 `YT` 绘图，`XY` 页面已接入最小版本
   - `ui_ctrl`：参数设置
-- `display`：统一显示接口，当前已接入 `UART`，并为 `RGBLCD` 预留后端
+- `display`：统一显示接口，当前已接入 `UART` 与 `RGBLCD` 波形页后端
   - `app`：调度与状态管理
 
 ## 开发里程碑
@@ -80,11 +89,16 @@
 - `M5` 参数调整、输出格式和误差展示收尾
 - `M6` 集成 `ALIENTEK 4342 RGBLCD`
 - `M7` 集成 `GT9xxx` 触摸调参
+- `M8` 单通道真实采样 `YT` 波形显示
+- `M9` 双 DAC 双方波 + 双通道 `YT` `已完成`
+- `M10` 三角波 + 最小 `XY` `已完成`
+- `M11` 正弦波 + 李萨如演示收口 `进行中`
 
 ## 推荐演示范围
 
-- 推荐主演示参数：`1000/50`、`2000/30`、`5000/70`
-- 推荐主演示链路：默认输出 -> 触摸改参数 -> 串口/屏幕同步显示 -> 拔线展示 `no-signal`
+- 当前已完成主演示参数：`1000/50`、`2000/30`、`5000/70`
+- 当前已完成主演示链路：默认输出 -> 触摸改参数 -> 串口/屏幕同步显示 -> 拔线展示 `no-signal`
+- 后续主演示链路：`YT` 波形显示 -> `square/triangle` 切换 -> 最小 `XY` 模式 -> `M11` 李萨如图形
 - `20Hz` 和 `100000Hz` 仅作为边界现象观察，不建议作为主演示参数
 
 ## 当前实现边界
@@ -92,6 +106,16 @@
 - 当前 `PWM` 发生与输入测量统一使用 `1 MHz` 计时基准，最小时间分辨率为 `1 us`
 - 中频段演示表现稳定，极端高频下每周期 tick 数过少，频率和占空比量化误差会明显放大
 - 极端低频切换时，`SET` 已更新而 `MEAS` 可能短暂保留上一帧或退化为 `no-signal`，这是当前状态刷新节奏与超时策略决定的
+- `M8` 的真实采样显示固定先走 `PB6(TIM4_CH1) -> PA0(ADC1_IN0)` 单通道回采
+- `M8` 已完成 `display_lcd.c` 按技术层拆分（`lcd_prim.c` 绘图原语 + `lcd_font.c` 字模），`display_lcd.c` 保留场景编排与 LTDC/SDRAM 初始化
+- `M8` 左侧 `INPUT` 卡固定表示 `PA0 ADC1` 真实采样输入，不再混用 `PA7 TIM3` 测量结果
+- 当前波形页优先针对方波输入优化：频率窗内显示真实输入 `F/D`，超出可稳定估算窗口时显示 `F=<当前输出频率> D=--`
+- 当前断线/悬空输入依赖 `PA0` 下拉和更严格的方波判定退化为无效输入，避免随机 `F/D`
+- 当前波形区仍采用 `CPU + RGB565` 单层绘制，通过局部刷新、短保持和失败滞回抑制频闪与偶发 `ADC LIVE`
+- `M9` 起正式切到 `PA4(DAC1) -> PA0`、`PA5(DAC2) -> PA6` 双通道模拟链路
+- `XY` 最小版已在 `M10` 接入，当前基于真实双通道 ADC 采样值做轨迹映射，`M11` 再收口为正式李萨如答辩演示
+- 当前双通道 DAC 输出仍固定同频同相，因此 `XY` 主要表现为退化直线或窄四边形，这是当前阶段可解释的最小结果
+- 双通道采样首版接受顺序扫描的非严格同时采样限制，主演示频段会优先控制在中低频范围
 
 详细计划见 [docs/roadmap.md](docs/roadmap.md)，误差分析见 [docs/error-analysis.md](docs/error-analysis.md)，演示流程见 [docs/demo-script.md](docs/demo-script.md)。
 LCD 集成分析见 [docs/lcd-integration-notes.md](docs/lcd-integration-notes.md)。
@@ -129,19 +153,25 @@ LCD 集成分析见 [docs/lcd-integration-notes.md](docs/lcd-integration-notes.m
 3. 在 [docs/decision-log.md](docs/decision-log.md) 中记录最终采用 `F4` 还是 `F7`
 4. 本机构建最小工程：
 
-```bash
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja
-cmake --build build
-```
+    ```bash
+    cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake -G Ninja
+    cmake --build build
+    ```
 
-5. 串口监听：
+5. 烧录
 
-```bash
-python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
-```
+    ```bash
+    sudo stm32flash -b 115200 -w build/firmware.bin -v /dev/ttyUSB0
+    ```
 
-6. 先验证 `UART`，再验证 `PWM`、`PB6 -> PA7` 回环测量和 LCD 触摸按键
-7. 先跑宿主机逻辑测试：
+6. 串口监听：
+
+    ```bash
+    python3 tools/serial_monitor.py --port /dev/ttyUSB0 --baud 115200
+    ```
+
+7. 先验证 `UART` 和 LCD 触摸，再验证 `PA4 -> PA0`、`PA5 -> PA6` 的 M9 主回路；`PB6 -> PA7` 仅作为 legacy 回归链路
+8. 先跑宿主机逻辑测试：
 
 ```bash
 ./tests/run_host_tests.sh
@@ -155,8 +185,8 @@ cmake --build build-host-tests
 ctest --test-dir build-host-tests --output-on-failure
 ```
 
-8. 串口观察 `SET freq=... duty=... | MEAS ...` 输出是否跟随设定变化，LCD 触摸按键是否能触发参数调整
-9. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
+1. 串口观察 `status`、`freq <hz>` 与 LCD 触摸切换/调频输出是否符合当前 M10 语义；`duty <1-99>` 仅用于提示当前 DAC 模式不可调
+2. 每次阶段性完成后更新 [docs/verification-log.md](docs/verification-log.md)
 
 ## CI
 

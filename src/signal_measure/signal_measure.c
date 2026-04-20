@@ -9,23 +9,13 @@ static TIM_HandleTypeDef measure_timer;
 static volatile signal_measure_result_t latest_result;
 static volatile uint32_t last_capture_ms;
 
-/* TIM3 同样挂在 APB1，上层逻辑统一使用真实定时器时钟。 */
-static uint32_t timer_clock_hz(void) {
-  uint32_t pclk = HAL_RCC_GetPCLK1Freq();
-  uint32_t ppre = (RCC->CFGR & RCC_CFGR_PPRE1);
-
-  if (ppre == RCC_HCLK_DIV1) {
-    return pclk;
-  }
-
-  return pclk * 2U;
-}
+/* TIM3 同样挂在 APB1，共享时钟函数由 board_config.h 提供。 */
 
 /* 配置 TIM3 为 PWM Input 模式，同时抓取周期和高电平宽度。 */
 void signal_measure_init(void) {
   TIM_IC_InitTypeDef ic_config = {0};
   TIM_SlaveConfigTypeDef slave_config = {0};
-  uint32_t timer_clock = timer_clock_hz();
+  uint32_t timer_clock = tim_apb1_clock_hz();
 
   measure_timer.Instance = APP_MEASURE_TIM_INSTANCE;
   measure_timer.Init.Prescaler = (timer_clock / APP_TIMER_TICK_HZ) - 1U;

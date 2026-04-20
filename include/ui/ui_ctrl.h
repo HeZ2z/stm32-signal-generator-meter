@@ -3,11 +3,12 @@
 
 #include <stdbool.h>
 
-#include "signal_gen/signal_gen.h"
+#include "signal_gen/signal_gen_dac.h"
 #include "touch/touch.h"
 
 typedef enum {
   UI_SCREEN_CONTROL = 0,
+  UI_SCREEN_XY,
   UI_SCREEN_CALIBRATION,
 } ui_screen_t;
 
@@ -15,8 +16,8 @@ typedef enum {
   UI_HIGHLIGHT_NONE = 0,
   UI_HIGHLIGHT_FREQ_DOWN,
   UI_HIGHLIGHT_FREQ_UP,
-  UI_HIGHLIGHT_DUTY_DOWN,
-  UI_HIGHLIGHT_DUTY_UP,
+  UI_HIGHLIGHT_WAVE_TOGGLE,
+  UI_HIGHLIGHT_SCREEN_TOGGLE,
   UI_HIGHLIGHT_RESET,
   UI_HIGHLIGHT_HELP,
 } ui_highlight_t;
@@ -27,8 +28,8 @@ typedef struct {
   bool touch_pressed;
   bool more_open;
   ui_highlight_t highlight;
-  signal_gen_config_t active_config;
-  signal_gen_config_t pending_config;
+  signal_gen_dac_config_t active_config;
+  signal_gen_dac_config_t pending_config;
   touch_point_t last_touch;
   touch_point_t calibration_target;
   char title[32];
