@@ -44,30 +44,49 @@ void lcd_draw_vline(uint16_t x, uint16_t y, uint16_t height, uint16_t color) {
 }
 
 void lcd_draw_line(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uint16_t color) {
-  int32_t dx = (int32_t)x1 - (int32_t)x0;
-  int32_t sx = x0 < x1 ? 1 : -1;
-  int32_t dy_abs = (int32_t)y1 - (int32_t)y0;
-  if (dy_abs < 0) {
-    dy_abs = -dy_abs;
-  }
-  int32_t dy = -dy_abs;
-  int32_t sy = y0 < y1 ? 1 : -1;
-  int32_t err = dx + dy;
+  int32_t x = (int32_t)x0;
+  int32_t y = (int32_t)y0;
+  int32_t dx = (int32_t)x1 - x;
+  int32_t dy = (int32_t)y1 - y;
+  int32_t dx_abs;
+  int32_t dy_abs;
+  int32_t sx = x < (int32_t)x1 ? 1 : -1;
+  int32_t sy = y < (int32_t)y1 ? 1 : -1;
+  int32_t err;
+  uint32_t steps = 0U;
+  uint32_t max_steps = APP_LCD_WIDTH + APP_LCD_HEIGHT + 4U;
 
-  while (1) {
-    lcd_plot(x0, y0, color);
-    if (x0 == x1 && y0 == y1) {
+  if (dx < 0) {
+    dx = -dx;
+  }
+  if (dy < 0) {
+    dy = -dy;
+  }
+
+  dx_abs = dx;
+  dy_abs = dy;
+  err = dx_abs - dy_abs;
+
+  while (steps <= max_steps) {
+    lcd_plot((uint16_t)x, (uint16_t)y, color);
+    if (x == (int32_t)x1 && y == (int32_t)y1) {
       break;
     }
-    int32_t e2 = err * 2;
-    if (e2 >= dy) {
-      err += dy;
-      x0 = (uint16_t)((int32_t)x0 + sx);
+
+    {
+      int32_t e2 = err * 2;
+
+      if (e2 > -dy_abs) {
+        err -= dy_abs;
+        x += sx;
+      }
+      if (e2 < dx_abs) {
+        err += dx_abs;
+        y += sy;
+      }
     }
-    if (e2 <= dx) {
-      err += dx;
-      y0 = (uint16_t)((int32_t)y0 + sy);
-    }
+
+    ++steps;
   }
 }
 
@@ -96,8 +115,8 @@ void lcd_clear(uint16_t color) {
 static const char *const lcd_button_labels[] = {
     [UI_HIGHLIGHT_FREQ_DOWN] = "F-1K",
     [UI_HIGHLIGHT_FREQ_UP]   = "F+1K",
-    [UI_HIGHLIGHT_DUTY_DOWN] = "D-5",
-    [UI_HIGHLIGHT_DUTY_UP]   = "D+5",
+    [UI_HIGHLIGHT_WAVE_TOGGLE] = "WAVE",
+    [UI_HIGHLIGHT_SCREEN_TOGGLE] = "YT/XY",
     [UI_HIGHLIGHT_RESET]     = "RESET",
     [UI_HIGHLIGHT_HELP]      = "MORE",
 };
@@ -106,14 +125,14 @@ extern const struct _lcd_btn_def lcd_buttons[];
 const struct _lcd_btn_def lcd_buttons[] = {
     {UI_HIGHLIGHT_FREQ_DOWN,  22U, 224U,  72U, 30U},
     {UI_HIGHLIGHT_FREQ_UP,    98U, 224U,  72U, 30U},
-    {UI_HIGHLIGHT_DUTY_DOWN, 174U, 224U,  72U, 30U},
-    {UI_HIGHLIGHT_DUTY_UP,   250U, 224U,  72U, 30U},
+    {UI_HIGHLIGHT_WAVE_TOGGLE, 174U, 224U, 72U, 30U},
+    {UI_HIGHLIGHT_SCREEN_TOGGLE, 250U, 224U, 72U, 30U},
     {UI_HIGHLIGHT_RESET,     356U, 224U,  98U, 30U},
     {UI_HIGHLIGHT_HELP,      360U,  14U,  98U, 28U},
 };
 
 const char *lcd_button_label(int id) {
-  if (id <= UI_HIGHLIGHT_HELP) {
+  if (id >= UI_HIGHLIGHT_NONE && id <= UI_HIGHLIGHT_HELP) {
     return lcd_button_labels[id];
   }
   return NULL;
