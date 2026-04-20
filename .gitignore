@@ -8,6 +8,7 @@
 /CMakeFiles/
 /compile_commands.json
 /*.ninja
+.cache/
 
 # Firmware artifacts
 *.o
@@ -24,6 +25,7 @@
 # IDE and editor files
 .idea/
 .vscode/
+.cursor/
 .settings/
 .claude/
 .omx/
