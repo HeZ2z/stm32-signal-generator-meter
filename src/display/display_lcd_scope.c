@@ -11,6 +11,15 @@
 
 lcd_scope_state_t lcd_scope_state;
 
+typedef struct {
+  bool valid;
+  char ch_a_line[24];
+  char ch_b_line[24];
+  char output_line[24];
+} lcd_scope_text_cache_t;
+
+static lcd_scope_text_cache_t lcd_scope_text_cache;
+
 typedef enum {
   LCD_SCOPE_CARD_NO_SIGNAL = 0,
   LCD_SCOPE_CARD_ESTIMABLE,
@@ -110,6 +119,7 @@ static lcd_scope_card_status_t build_card_status(
 
 void display_lcd_scope_init(void) {
   (void)memset(&lcd_scope_state, 0, sizeof(lcd_scope_state));
+  (void)memset(&lcd_scope_text_cache, 0, sizeof(lcd_scope_text_cache));
 }
 
 uint32_t lcd_scope_adc_sample_rate_hz(void) {
@@ -161,7 +171,7 @@ void lcd_restore_scope_columns(uint16_t x_begin, uint16_t x_end) {
   }
 }
 
-static void lcd_draw_scope_trace(const scope_capture_frame_t *frame) {
+void lcd_scope_plot_refresh(const scope_capture_frame_t *frame) {
   scope_render_trace_t trace_a = {0};
   scope_render_trace_t trace_b = {0};
   uint16_t warn = lcd_rgb565(255, 208, 116);
@@ -233,8 +243,8 @@ static void lcd_draw_scope_trace(const scope_capture_frame_t *frame) {
   lcd_scope_state.valid = true;
 }
 
-static void lcd_draw_info_cards(const signal_gen_dac_status_t *dac,
-                                const scope_capture_frame_t *frame) {
+void lcd_scope_info_refresh(const signal_gen_dac_status_t *dac,
+                            const scope_capture_frame_t *frame) {
   uint16_t panel = lcd_rgb565(7, 16, 34);
   uint16_t border = lcd_rgb565(54, 122, 178);
   uint16_t input_a = lcd_rgb565(112, 232, 162);
@@ -242,7 +252,9 @@ static void lcd_draw_info_cards(const signal_gen_dac_status_t *dac,
   uint16_t output_accent = lcd_rgb565(255, 182, 86);
   uint16_t text = lcd_rgb565(236, 246, 255);
   uint16_t warn = lcd_rgb565(255, 208, 116);
-  char line[48];
+  char ch_a_line[24];
+  char ch_b_line[24];
+  char output_line[24];
   lcd_scope_card_status_t status_a =
       build_card_status(frame != NULL ? &frame->ch_a : NULL, dac->waveform,
                         dac->frequency_hz);
@@ -259,54 +271,70 @@ static void lcd_draw_info_cards(const signal_gen_dac_status_t *dac,
   lcd_scope_state.estimate_b.frequency_hz = status_b.frequency_hz;
   lcd_scope_state.estimate_b.duty_percent = status_b.duty_percent;
 
+  if (status_a.state == LCD_SCOPE_CARD_ESTIMABLE) {
+    (void)snprintf(ch_a_line, sizeof(ch_a_line), "F=%luHZ D=%u%%",
+                   (unsigned long)status_a.frequency_hz,
+                   status_a.duty_percent);
+  } else if (status_a.state == LCD_SCOPE_CARD_OUT_OF_WINDOW) {
+    (void)snprintf(ch_a_line, sizeof(ch_a_line), "F=%luHZ D=--",
+                   (unsigned long)status_a.frequency_hz);
+  } else {
+    (void)snprintf(ch_a_line, sizeof(ch_a_line), "NO SIGNAL");
+  }
+
+  if (status_b.state == LCD_SCOPE_CARD_ESTIMABLE) {
+    (void)snprintf(ch_b_line, sizeof(ch_b_line), "F=%luHZ D=%u%%",
+                   (unsigned long)status_b.frequency_hz,
+                   status_b.duty_percent);
+  } else if (status_b.state == LCD_SCOPE_CARD_OUT_OF_WINDOW) {
+    (void)snprintf(ch_b_line, sizeof(ch_b_line), "F=%luHZ D=--",
+                   (unsigned long)status_b.frequency_hz);
+  } else {
+    (void)snprintf(ch_b_line, sizeof(ch_b_line), "NO SIGNAL");
+  }
+
+  (void)snprintf(output_line, sizeof(output_line), "F=%luHZ %s",
+                 (unsigned long)dac->frequency_hz,
+                 signal_gen_dac_waveform_short_name(dac->waveform));
+
+  if (lcd_scope_text_cache.valid &&
+      strcmp(lcd_scope_text_cache.ch_a_line, ch_a_line) == 0 &&
+      strcmp(lcd_scope_text_cache.ch_b_line, ch_b_line) == 0 &&
+      strcmp(lcd_scope_text_cache.output_line, output_line) == 0) {
+    return;
+  }
+
   lcd_draw_card(18, 14, 198, 38, border, panel, input_a);
   lcd_draw_card(222, 14, 116, 38, border, panel, output_accent);
 
   lcd_draw_string(26, 20, "INPUT", text, panel, 1);
   lcd_draw_string(26, 30, "CH-A PA4->PA0", input_a, panel, 1);
   if (status_a.state == LCD_SCOPE_CARD_ESTIMABLE) {
-    (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%",
-                   (unsigned long)status_a.frequency_hz,
-                   status_a.duty_percent);
-    lcd_draw_string(116, 30, line, text, panel, 1);
+    lcd_draw_string(116, 30, ch_a_line, text, panel, 1);
   } else if (status_a.state == LCD_SCOPE_CARD_OUT_OF_WINDOW) {
-    (void)snprintf(line, sizeof(line), "F=%luHZ D=--",
-                   (unsigned long)status_a.frequency_hz);
-    lcd_draw_string(116, 30, line, text, panel, 1);
+    lcd_draw_string(116, 30, ch_a_line, text, panel, 1);
   } else {
-    lcd_draw_string(116, 30, "NO SIGNAL", warn, panel, 1);
+    lcd_draw_string(116, 30, ch_a_line, warn, panel, 1);
   }
 
   lcd_draw_string(26, 40, "CH-B PA5->PA6", input_b, panel, 1);
   if (status_b.state == LCD_SCOPE_CARD_ESTIMABLE) {
-    (void)snprintf(line, sizeof(line), "F=%luHZ D=%u%%",
-                   (unsigned long)status_b.frequency_hz,
-                   status_b.duty_percent);
-    lcd_draw_string(116, 40, line, text, panel, 1);
+    lcd_draw_string(116, 40, ch_b_line, text, panel, 1);
   } else if (status_b.state == LCD_SCOPE_CARD_OUT_OF_WINDOW) {
-    (void)snprintf(line, sizeof(line), "F=%luHZ D=--",
-                   (unsigned long)status_b.frequency_hz);
-    lcd_draw_string(116, 40, line, text, panel, 1);
+    lcd_draw_string(116, 40, ch_b_line, text, panel, 1);
   } else {
-    lcd_draw_string(116, 40, "NO SIGNAL", warn, panel, 1);
+    lcd_draw_string(116, 40, ch_b_line, warn, panel, 1);
   }
 
   lcd_draw_string(230, 20, "OUTPUT", text, panel, 1);
   lcd_draw_string(230, 30, "PA4/PA5 DAC1/2", output_accent, panel, 1);
-  (void)snprintf(line, sizeof(line), "F=%luHZ %s",
-                 (unsigned long)dac->frequency_hz,
-                 signal_gen_dac_waveform_short_name(dac->waveform));
-  lcd_draw_string(230, 40, line, text, panel, 1);
-}
+  lcd_draw_string(230, 40, output_line, text, panel, 1);
 
-void lcd_draw_control_dynamic(const ui_ctrl_view_t *ui,
-                              const signal_measure_result_t *measurement) {
-  scope_capture_frame_t frame = {0};
-  uint32_t now = HAL_GetTick();
-
-  (void)measurement;
-  signal_capture_adc_read_frame(&frame, now);
-  lcd_draw_scope_trace(&frame);
-  lcd_draw_info_cards(signal_gen_dac_current(), &frame);
-  lcd_draw_footer(ui);
+  lcd_scope_text_cache.valid = true;
+  (void)snprintf(lcd_scope_text_cache.ch_a_line,
+                 sizeof(lcd_scope_text_cache.ch_a_line), "%s", ch_a_line);
+  (void)snprintf(lcd_scope_text_cache.ch_b_line,
+                 sizeof(lcd_scope_text_cache.ch_b_line), "%s", ch_b_line);
+  (void)snprintf(lcd_scope_text_cache.output_line,
+                 sizeof(lcd_scope_text_cache.output_line), "%s", output_line);
 }

@@ -31,9 +31,9 @@ void display_lcd_scope_init(void);
 uint32_t lcd_scope_adc_sample_rate_hz(void);
 void lcd_draw_scope_static_plot_frame(void);
 void lcd_restore_scope_columns(uint16_t x_begin, uint16_t x_end);
-void lcd_draw_control_dynamic(const ui_ctrl_view_t *ui,
-                              const signal_measure_result_t *measurement);
-
+void lcd_scope_plot_refresh(const scope_capture_frame_t *frame);
+void lcd_scope_info_refresh(const signal_gen_dac_status_t *dac,
+                            const scope_capture_frame_t *frame);
 void lcd_draw_string(uint16_t x, uint16_t y, const char *text,
                      uint16_t fg, uint16_t bg, uint8_t scale);
 
