@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "board/board_config.h"
 #include "signal_gen/signal_gen_dac.h"
 #include "signal_gen/signal_gen_dac_logic.h"
 
@@ -54,12 +55,40 @@ static void test_pack_dual_samples(void) {
   assert(signal_gen_dac_pack_dual_12b(0x1000U, 0x2000U) == 0x00000000UL);
 }
 
+static void test_validate_boundaries(void) {
+  // NULL
+  assert(!signal_gen_dac_config_valid(NULL));
+
+  // 频率下界
+  assert(!signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = APP_DAC_MIN_FREQ_HZ - 1U, .waveform = APP_DAC_WAVE_SINE}));
+  assert(signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = APP_DAC_MIN_FREQ_HZ, .waveform = APP_DAC_WAVE_SINE}));
+  assert(signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = APP_DAC_MIN_FREQ_HZ, .waveform = APP_DAC_WAVE_SQUARE}));
+  assert(signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = APP_DAC_MIN_FREQ_HZ, .waveform = APP_DAC_WAVE_TRIANGLE}));
+
+  // 频率上界
+  assert(signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = APP_DAC_MAX_FREQ_HZ, .waveform = APP_DAC_WAVE_SINE}));
+  assert(!signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = APP_DAC_MAX_FREQ_HZ + 1U, .waveform = APP_DAC_WAVE_SINE}));
+
+  // 无效 waveform
+  assert(!signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = 1000U, .waveform = 99}));
+  assert(!signal_gen_dac_config_valid(&(signal_gen_dac_config_t){
+      .frequency_hz = 1000U, .waveform = (dac_waveform_t)(-1)}));
+}
+
 int main(void) {
   printf("Running signal_gen_dac_logic tests...\n");
   test_validate_square_config();
   test_compute_tim6_update_rate();
   test_compute_tim6_dividers();
   test_pack_dual_samples();
+  test_validate_boundaries();
   printf("All signal_gen_dac_logic tests passed.\n");
   return 0;
 }

@@ -12,15 +12,19 @@
 #include "ui/ui_cmd.h"
 #include "ui/ui_touch_map.h"
 
+#ifndef HOST_TEST
 static char command_buffer[48];
 static size_t command_length;
 static UART_HandleTypeDef *console_uart;
+#endif
 static ui_ctrl_view_t view;
 static active_control_t active_control;
 
 void ui_ctrl_init(void) {
+#ifndef HOST_TEST
   console_uart = display_uart_handle();
   command_length = 0U;
+#endif
   active_control = ACTIVE_NONE;
   (void)memset(&view, 0, sizeof(view));
 
@@ -42,11 +46,13 @@ void ui_ctrl_init(void) {
 }
 
 void ui_ctrl_poll(void) {
+#ifndef HOST_TEST
   uint8_t ch;
-  uint32_t now = HAL_GetTick();
-  touch_event_t event;
   ui_cmd_t cmd = {0};
   bool line_ready = false;
+#endif
+  uint32_t now = HAL_GetTick();
+  touch_event_t event;
 
   touch_poll(now);
 
@@ -117,6 +123,7 @@ void ui_ctrl_poll(void) {
     }
   }
 
+#ifndef HOST_TEST
   if (HAL_UART_Receive(console_uart, &ch, 1U, 0U) != HAL_OK) {
     return;
   }
@@ -143,6 +150,7 @@ void ui_ctrl_poll(void) {
     cmd.kind = UI_CMD_INVALID;
   }
   handle_ui_command(&cmd);
+#endif
 }
 
 const ui_ctrl_view_t *ui_ctrl_view(void) {

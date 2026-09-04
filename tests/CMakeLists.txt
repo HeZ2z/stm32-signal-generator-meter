@@ -62,3 +62,24 @@ add_executable(test_signal_gen_dac_logic
 target_compile_definitions(test_signal_gen_dac_logic PRIVATE HOST_TEST)
 target_include_directories(test_signal_gen_dac_logic PRIVATE ../include ../src)
 add_test(NAME test_signal_gen_dac_logic COMMAND test_signal_gen_dac_logic)
+
+add_executable(test_display_lcd_xy_logic
+  test_display_lcd_xy_logic.c
+  ../src/display/display_lcd_xy_logic.c
+)
+target_compile_definitions(test_display_lcd_xy_logic PRIVATE HOST_TEST)
+target_include_directories(test_display_lcd_xy_logic PRIVATE ../include ../src)
+add_test(NAME test_display_lcd_xy_logic COMMAND test_display_lcd_xy_logic)
+
+add_library(test_ui_ctrl_compile_obj OBJECT ../src/ui/ui_ctrl.c)
+target_compile_definitions(test_ui_ctrl_compile_obj PRIVATE HOST_TEST)
+target_include_directories(test_ui_ctrl_compile_obj PRIVATE .. ../include ../src .)
+target_compile_options(test_ui_ctrl_compile_obj PRIVATE -include hal_stubs.h)
+
+add_executable(test_ui_ctrl_compile
+  test_ui_ctrl_compile_stubs.c
+)
+target_compile_definitions(test_ui_ctrl_compile PRIVATE HOST_TEST)
+target_link_libraries(test_ui_ctrl_compile PRIVATE test_ui_ctrl_compile_obj)
+target_include_directories(test_ui_ctrl_compile PRIVATE . .. ../include ../src)
+add_test(NAME test_ui_ctrl_compile COMMAND test_ui_ctrl_compile)

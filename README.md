@@ -1,6 +1,6 @@
 # stm32-signal-generator-meter
 
-单板 `STM32F4/F7` 实践项目。当前仓库已经完成 `PWM 输出 + 输入测量 + UART/LCD/触摸 + 双 DAC/双 ADC 双通道 YT` 主链路，并在保留旧主线可编译、可回归的前提下进入 `M10`：继续收敛 `triangle + 最小 XY` 演示链路。
+单板 `STM32F4/F7` 实践项目。当前仓库已经完成 `PWM 输出 + 输入测量 + UART/LCD/触摸 + 双 DAC/双 ADC 双通道 YT` 主链路，并在保留旧主线可编译、可回归的前提下进入 `M11`：`square / triangle / sine` 三波形 + 李萨如演示阶段（代码路径已完成，待实板验证）。
 
 ## 项目状态
 
@@ -8,14 +8,14 @@
 - 开发板：`Apollo STM32 F4/F7`
 - 当前硬件条件：`仅开发板本体，无外接传感器`
 - 当前策略：按 `STM32F429` 路线收敛主固件，并在现有 PWM/测量主线上并行扩展 DAC/ADC 波形显示主线
-- 当前未决项：按 `M10-M11` 推进 `triangle / XY / sine / 李萨如` 演示
+- 当前未决项：代码路径基本完成，剩余实板三场景验证（phase=0 ratio=1、phase=157 ratio=1、phase=0 ratio=2）与文档最终收口
   - 当前 LCD 真值基线：`Apollo STM32F429IGT6 + SDRAM Bank1 + framebuffer 0xC0000000`
   - 已落地屏参：`480x272 RGB565`, `9MHz`, `HSYNC 1 / HBP 40 / HFP 5 / VSYNC 1 / VBP 8 / VFP 8`
   - 已完成冲突处理：`PB5` 固定改作 `LCD_BL`，测量输入迁到 `PA7(TIM3_CH2)`
   - 已落地触摸基线：`GT9147/GT9xxx`, `PH6=SCL`, `PI3=SDA`, `PI8=RST`, `PH7=INT`
 
 当前仓库已提供一个基于 `STM32F429 + HAL + CMake` 的主固件，当前主路径包含 `UART + PWM + TIM PWM Input + 串口命令`，时钟默认走 `HSI 16 MHz`，并把板级引脚集中在 `include/board_config.h` 中，便于后续按实物统一修正。
-当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 波形页后端 + `GT9xxx` 触摸调参入口。当前默认主演示页已经切到双路 `DAC -> ADC -> LCD` 主链路，`M10` 已完成 `triangle` 与最小 `XY` 页面；当前双通道输出仍固定同频同相，因此 `XY` 主要用于证明真实双通道采样与轨迹绘制链路已打通，完整李萨如演示留给 `M11`。
+当前仓库还补充了误差样例和演示脚本文档，并把显示层升级为 `UART` 主通道 + `RGBLCD` 波形页后端 + `GT9xxx` 触摸调参入口。当前默认主演示页已经切到双路 `DAC -> ADC -> LCD` 主链路，当前已完成三波形（square/triangle/sine）、双通道 DAC/TIM6 波形表驱动、YT/XY 双模式，完整李萨如演示（phase/ratio 参数）待实板验证。
 
 ## 项目目标
 

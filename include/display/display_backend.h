@@ -5,7 +5,9 @@
 
 #include "signal_measure/signal_measure.h"
 #include "signal_gen/signal_gen_dac.h"
+#ifndef HOST_TEST
 #include "stm32f4xx_hal.h"
+#endif
 
 /* display.c 门面层依赖的后端接口定义。 */
 
@@ -15,7 +17,9 @@ void display_uart_write(const char *text);
 void display_uart_boot_banner(void);
 void display_uart_help(void);
 void display_uart_status(void);
+#ifndef HOST_TEST
 UART_HandleTypeDef *display_uart_handle(void);
+#endif
 
 /* LCD 后端接口，负责板载 RGBLCD 的图形状态页。 */
 void display_lcd_init(void);

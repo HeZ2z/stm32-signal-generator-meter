@@ -245,6 +245,7 @@ void display_lcd_hw_init(void) {
     return;
   }
 
+  lcd_prim_backend_init();
   lcd_fill_test_pattern();
   lcd_backlight_on();
 

@@ -200,3 +200,15 @@
 
 - `M10` 的文档表述固定为：`triangle + 最小 XY` 已接入，但当前双方路仍保持同频同相，`XY` 首版主要用于证明页面、采样和成图链路已打通
 - 原因：当前最小 `XY` 已经工作，但还没有引入双路频率差、相位差或正弦波，不能在文档中提前承诺完整李萨如演示效果
+
+## 2026-04-21
+
+### 决策 40
+
+- 主题：stop_dual_dma() 为唯一停机 owner，dac_status.active 由展示层消费
+- 原因：apply() 失败路径需要明确状态语义，避免"旧配置已停但 UI 仍显示旧值"的不一致；统一停机职责消除多 owner 竞争，active 语义升级为"是否正在运行"的权威状态位
+- 方案：
+  - stop_dual_dma() 负责关闭 TIM6、清 DMAEN1、abort DMA，是唯一的停机 owner
+  - apply() 失败时显式写 dac_status.active=false，不再保留旧值
+  - display 层（UART / LCD scope / LCD scene / LCD XY）在 active==false 时不再显示 live 值，改为 OUTPUT STOPPED / DAC INACTIVE
+  - UI 层统一区分：参数越界 → "FREQ OUT OF RANGE"；运行时重配置失败 → "DAC RECONFIG FAIL"

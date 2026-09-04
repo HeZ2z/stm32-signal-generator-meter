@@ -6,6 +6,7 @@
 #include "display/display_lcd_hw.h"
 #include "display/display_lcd_scene.h"
 #include "display/display_lcd_scope.h"
+#include "display/display_lcd_xy.h"
 #include "display/lcd_prim.h"
 #include "signal_measure/signal_measure.h"
 #include "signal_gen/signal_gen_dac.h"
@@ -13,6 +14,7 @@
 
 void display_lcd_init(void) {
   display_lcd_scope_init();
+  display_lcd_xy_init();
   display_lcd_hw_init();
   display_lcd_scene_init();
 }

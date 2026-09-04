@@ -97,40 +97,40 @@ static void configure_tim6(dac_waveform_t waveform, uint32_t output_frequency_hz
   }
 }
 
-static void start_dual_dma(void) {
+static bool start_dual_dma(void) {
   uint32_t target = (uint32_t)&dac_handle.Instance->DHR12RD;
 
-  if (dac_handle.DMA_Handle1 == NULL) {
-    Error_Handler();
-  }
-
-  /* 当前 circular DMA 路径不依赖 half/complete/error 回调。 */
-  dac_handle.DMA_Handle1->XferCpltCallback = NULL;
-  dac_handle.DMA_Handle1->XferHalfCpltCallback = NULL;
-  dac_handle.DMA_Handle1->XferErrorCallback = NULL;
-
-  if (HAL_DMA_Start(dac_handle.DMA_Handle1, (uint32_t)dual_waveform_table, target,
-                    APP_DAC_WAVE_TABLE_SIZE) != HAL_OK) {
-    Error_Handler();
-  }
-
-  SET_BIT(dac_handle.Instance->CR, DAC_CR_DMAEN1);
-  if (HAL_TIM_Base_Start(&dac_trigger_timer) != HAL_OK) {
-    Error_Handler();
-  }
-}
-
-static bool stop_dual_dma(void) {
   if (dac_handle.DMA_Handle1 == NULL) {
     return false;
   }
 
-  __HAL_TIM_DISABLE(&dac_trigger_timer);
+  dac_handle.DMA_Handle1->XferCpltCallback = NULL;
+  dac_handle.DMA_Handle1->XferHalfCpltCallback = NULL;
+  dac_handle.DMA_Handle1->XferErrorCallback = NULL;
 
-  if ((dac_handle.Instance->CR & DAC_CR_DMAEN1) == 0U &&
-      dac_handle.DMA_Handle1->State != HAL_DMA_STATE_BUSY) {
+  if (HAL_DMA_Start(dac_handle.DMA_Handle1,
+                     (uint32_t)dual_waveform_table, target,
+                     APP_DAC_WAVE_TABLE_SIZE) != HAL_OK) {
+    return false;
+  }
+
+  SET_BIT(dac_handle.Instance->CR, DAC_CR_DMAEN1);
+
+  if (HAL_TIM_Base_Start(&dac_trigger_timer) != HAL_OK) {
+    CLEAR_BIT(dac_handle.Instance->CR, DAC_CR_DMAEN1);
+    (void)HAL_DMA_Abort(dac_handle.DMA_Handle1);
+    return false;
+  }
+
+  return true;
+}
+
+static bool stop_dual_dma(void) {
+  if (dac_handle.DMA_Handle1 == NULL) {
     return true;
   }
+
+  __HAL_TIM_DISABLE(&dac_trigger_timer);
 
   if ((dac_handle.Instance->CR & DAC_CR_DMAEN1) != 0U) {
     CLEAR_BIT(dac_handle.Instance->CR, DAC_CR_DMAEN1);
@@ -144,11 +144,15 @@ static bool stop_dual_dma(void) {
     }
   }
 
-  if (dac_handle.DMA_Handle1->State != HAL_DMA_STATE_BUSY) {
-    return true;
+  if (dac_handle.DMA_Handle1->State == HAL_DMA_STATE_BUSY) {
+    HAL_StatusTypeDef abort_result = HAL_DMA_Abort(dac_handle.DMA_Handle1);
+    if (abort_result != HAL_OK) {
+      return false;
+    }
   }
 
-  return HAL_DMA_Abort(dac_handle.DMA_Handle1) == HAL_OK;
+  return (dac_handle.Instance->CR & DAC_CR_DMAEN1) == 0U &&
+         dac_handle.DMA_Handle1->State != HAL_DMA_STATE_BUSY;
 }
 
 void signal_gen_dac_init(void) {
@@ -186,6 +190,7 @@ bool signal_gen_dac_apply(const signal_gen_dac_config_t *config) {
   }
 
   if (!stop_dual_dma()) {
+    dac_status.active = false;
     return false;
   }
 
@@ -193,7 +198,11 @@ bool signal_gen_dac_apply(const signal_gen_dac_config_t *config) {
                           config->ch_b_phase_offset_rad,
                           config->ch_b_frequency_ratio);
   configure_tim6(config->waveform, config->frequency_hz);
-  start_dual_dma();
+
+  if (!start_dual_dma()) {
+    dac_status.active = false;
+    return false;
+  }
 
   dac_status.active = true;
   dac_status.frequency_hz = config->frequency_hz;

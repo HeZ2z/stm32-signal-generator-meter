@@ -54,6 +54,10 @@
 | 2026-04-20 | `M10` | 实板双通道断线退化 | 拔掉 PA5->PA6 后 CH-B 退化为 NO SIGNAL，接回后恢复正常 | Pass | 与 M9 行为一致 |
 | 2026-04-20 | `M10` | UART status 语义验证 | `status` 输出包含 VIEW 字段（YT/XY），与 LCD 当前页面一致 | Pass | help 文案已明确 duty 为 info-only |
 | 2026-04-18 | `M11` | 正弦波 + 李萨如演示规划 | 目标为完成三波形、`YT/XY` 双模式和李萨如答辩链路 | Planned | 当前仅完成阶段定义，待后续实现和实板验证 |
+| 2026-04-21 | `M11` | 三波形 + 正弦波接入 | `cmake --build build-host-tests && ctest --test-dir build-host-tests --output-on-failure` | Pass | square/triangle/sine 均通过 test_signal_gen_dac_logic 边界测试 |
+| 2026-04-21 | `M11` | stop_dual_dma() 重构 + ensure_dma_idle() 删除 | `cmake --build build` | Code | HAL DMA abort 守卫改为 State==BUSY，apply() 失败标 active=false，build 通过 |
+| 2026-04-21 | `M11` | display 层 OUTPUT STOPPED 语义 | 同上 | Code | 代码已接入，display_uart / display_lcd_scope / display_lcd_scene / display_lcd_xy 在 dac->active=false 时显示 stopped/inactive，build 通过 |
+| 2026-04-21 | `M11` | UI 失败提示区分 | 同上 | Code | 代码已接入：参数越界 → "FREQ OUT OF RANGE"；运行时重配置失败 → "DAC RECONFIG FAIL"，build 通过 |
 
 ## 后续记录建议
 

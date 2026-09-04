@@ -57,7 +57,9 @@ static bool apply_pending_config_with_footer(const char *success_text) {
   next = clamp_config(actions_view->pending_config);
   if (!signal_gen_dac_apply(&next)) {
     ui_sync_configs();
-    ui_set_footer("APPLY FAILED");
+    display_write("ERR DAC reconfigure failed\r\n");
+    ui_set_footer("DAC RECONFIG FAIL");
+    display_refresh_lcd();
     return false;
   }
 
@@ -135,7 +137,15 @@ void handle_ui_command(const ui_cmd_t *cmd) {
     case UI_CMD_SET_FREQ:
       next.frequency_hz = cmd->value;
       if (!signal_gen_dac_apply(&next)) {
-        ui_set_footer("FREQ OUT OF RANGE");
+        ui_sync_configs();
+        if (next.frequency_hz < APP_DAC_MIN_FREQ_HZ ||
+            next.frequency_hz > APP_DAC_MAX_FREQ_HZ) {
+          ui_set_footer("FREQ OUT OF RANGE");
+        } else {
+          display_write("ERR DAC reconfigure failed\r\n");
+          ui_set_footer("DAC RECONFIG FAIL");
+        }
+        display_refresh_lcd();
         break;
       }
       ui_sync_configs();
