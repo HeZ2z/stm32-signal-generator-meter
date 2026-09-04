@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <string.h>
 
+/* 解析一整行命令文本，仅支持当前项目约定的最小命令集。 */
 bool ui_cmd_parse(const char *line, ui_cmd_t *cmd) {
   unsigned long value = 0;
   const char *cursor;
@@ -26,6 +27,7 @@ bool ui_cmd_parse(const char *line, ui_cmd_t *cmd) {
     return false;
   }
 
+  /* 纯文本命令优先做精确匹配，带参数命令再走 sscanf。 */
   if (strcmp(cursor, "help") == 0) {
     cmd->kind = UI_CMD_HELP;
     return true;
@@ -48,9 +50,22 @@ bool ui_cmd_parse(const char *line, ui_cmd_t *cmd) {
     return true;
   }
 
+  if (sscanf(cursor, "phase %lu", &value) == 1) {
+    cmd->kind = UI_CMD_SET_PHASE;
+    cmd->value = (uint32_t)value;
+    return true;
+  }
+
+  if (sscanf(cursor, "ratio %lu", &value) == 1) {
+    cmd->kind = UI_CMD_SET_RATIO;
+    cmd->value = (uint32_t)value;
+    return true;
+  }
+
   return false;
 }
 
+/* 将串口收到的单个字符累积为一行命令。 */
 bool ui_cmd_push_char(char *buffer,
                       size_t capacity,
                       uint8_t ch,

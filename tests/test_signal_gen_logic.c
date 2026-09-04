@@ -4,6 +4,7 @@
 
 #include "signal_gen/signal_gen_logic.h"
 
+/* 覆盖 PWM 参数校验和定时器寄存器换算逻辑。 */
 static int failures = 0;
 
 static void expect(bool condition, const char *message) {
@@ -13,6 +14,7 @@ static void expect(bool condition, const char *message) {
   }
 }
 
+/* 默认工作参数必须通过校验，越界参数必须被拒绝。 */
 static void test_config_valid(void) {
   expect(signal_gen_config_valid(&(signal_gen_config_t){.frequency_hz = 1000U, .duty_percent = 50U}),
          "default config valid");
@@ -22,6 +24,7 @@ static void test_config_valid(void) {
          "low duty rejected");
 }
 
+/* 16 MHz 定时器时钟是当前宿主机逻辑测试的换算基准样例。 */
 static void test_compute_params(void) {
   uint32_t prescaler = 0;
   uint32_t period = 0;

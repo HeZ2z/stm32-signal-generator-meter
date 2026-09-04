@@ -24,6 +24,7 @@ uint32_t SystemCoreClock = 16000000U;
 const uint8_t AHBPrescTable[16U] = {0U, 0U, 0U, 0U, 1U, 2U, 3U, 4U, 6U, 7U, 8U, 9U, 0U, 0U, 0U, 0U};
 const uint8_t APBPrescTable[8U] = {0U, 0U, 0U, 0U, 1U, 2U, 3U, 4U};
 
+/* 上电后的最小系统初始化保持模板默认行为，主时钟切换在 app.c 中完成。 */
 void SystemInit(void) {
   SCB->CPACR |= ((3UL << 10U * 2U) | (3UL << 11U * 2U));
 
@@ -37,6 +38,7 @@ void SystemInit(void) {
   SCB->VTOR = FLASH_BASE | VECT_TAB_OFFSET;
 }
 
+/* 供 HAL 和调试输出在需要时回读当前 SystemCoreClock。 */
 void SystemCoreClockUpdate(void) {
   uint32_t tmp = 0U;
   uint32_t pllvco = 0U;

@@ -5,21 +5,66 @@
 #include "stm32f4xx_hal.h"
 #endif
 
+/* 当前项目已经确认使用的 Apollo 核心板型号。 */
 #define BOARD_NAME "Apollo STM32F429IGT6"
 
+/* 串口和默认业务参数。 */
 #define APP_UART_BAUDRATE 115200U
 #define APP_DEFAULT_PWM_FREQ_HZ 1000U
 #define APP_DEFAULT_PWM_DUTY_PERCENT 50U
+#define APP_DEFAULT_DAC_FREQ_HZ 1000U
 #define APP_STATUS_PERIOD_MS 500U
+#ifndef APP_ENABLE_LEGACY_PWM_CHAIN
+#define APP_ENABLE_LEGACY_PWM_CHAIN 0U
+#endif
 
+/* 串口命令允许设置的 PWM 边界。 */
 #define APP_PWM_MIN_FREQ_HZ 20U
 #define APP_PWM_MAX_FREQ_HZ 100000U
 #define APP_PWM_MIN_DUTY_PERCENT 1U
 #define APP_PWM_MAX_DUTY_PERCENT 99U
 
+/* M9 DAC 主链路复用同一频率边界。 */
+#define APP_DAC_MIN_FREQ_HZ APP_PWM_MIN_FREQ_HZ
+#define APP_DAC_MAX_FREQ_HZ APP_PWM_MAX_FREQ_HZ
+#define APP_DAC_WAVE_TABLE_SIZE 256U
+
+/* 输入捕获统一使用 1 MHz 计时基准，便于直接换算为 us。 */
 #define APP_TIMER_TICK_HZ 1000000U
 #define APP_MEASURE_SIGNAL_TIMEOUT_MS 1000U
 
+/* M9 双通道示波页的 ADC 采样与 LCD 刷新参数。 */
+#define APP_SCOPE_SAMPLE_COUNT 320U
+#define APP_SCOPE_ADC_SCAN_CHANNEL_COUNT 2U
+#define APP_SCOPE_ADC_TOTAL_RATE_HZ 100000U
+#define APP_SCOPE_ADC_CHANNEL_RATE_HZ APP_SCOPE_ADC_TOTAL_RATE_HZ
+#define APP_SCOPE_ADC_CHUNK_RAW_COUNT \
+  (APP_SCOPE_SAMPLE_COUNT * APP_SCOPE_ADC_SCAN_CHANNEL_COUNT)
+#define APP_SCOPE_DMA_BUFFER_SIZE (APP_SCOPE_ADC_CHUNK_RAW_COUNT * 2U)
+#define APP_SCOPE_SIGNAL_TIMEOUT_MS 120U
+#define APP_SCOPE_LCD_REFRESH_MS 100U
+#define APP_LCD_USE_DMA2D 1U
+#define APP_LCD_PROFILE_ENABLE 0U
+#define APP_SCOPE_SIGNAL_FLAT_THRESHOLD 24U
+#define APP_SCOPE_SIGNAL_MIN_SPAN 256U
+#define APP_SCOPE_SQUARE_LOW_LEVEL_MAX 512U
+#define APP_SCOPE_SQUARE_HIGH_LEVEL_MIN 3584U
+#define APP_SCOPE_ESTIMATE_HOLD_MS 250U
+#define APP_SCOPE_ESTIMATE_MISS_MAX 2U
+
+/* 触摸驱动轮询与事件去抖参数。 */
+#define APP_TOUCH_MOVE_DELTA_PX 3U
+#define APP_TOUCH_MOVE_INTERVAL_MS 40U
+#define APP_TOUCH_PRESS_DEBOUNCE_MS 30U
+#define APP_TOUCH_RELEASE_DEBOUNCE_MS 45U
+#define APP_TOUCH_DEBOUNCE_DRIFT_PX 12U
+#define APP_TOUCH_I2C_DELAY_CYCLES 400U
+#define APP_TOUCH_MAX_POINTS 5U
+#define APP_TOUCH_SWAP_XY 0U
+#define APP_TOUCH_INVERT_X 0U
+#define APP_TOUCH_INVERT_Y 0U
+
+/* LCD 基础信息和默认状态文本。 */
 #define APP_LCD_ENABLED 1U
 #define APP_LCD_NAME "ALIENTEK 4342 RGBLCD"
 #define APP_LCD_STATUS "ready"
@@ -47,19 +92,16 @@
 #define APP_SDRAM_TIMEOUT 0x1000U
 
 /*
- * In ALIENTEK F4/F7 family material, RGBLCD backlight is typically tied to
- * PB5 and reset is shared with the board reset circuit. That conflicts with the
- * current TIM3_CH2 measurement input on PB5, so M6 needs an input-capture remap
- * before LCD is enabled for real hardware.
+ * Apollo/ALIENTEK 资料确认 PB5 用作 RGBLCD 背光控制，因此测量输入已经
+ * 从旧的 PB5 路线迁移到 PA7。
  */
 #define APP_LCD_BACKLIGHT_PORT GPIOB
 #define APP_LCD_BACKLIGHT_PIN GPIO_PIN_5
 #define APP_LCD_BACKLIGHT_GPIO_CLK_ENABLE() __HAL_RCC_GPIOB_CLK_ENABLE()
 
 /*
- * Apollo V15 is treated as the F429IGT6 + SDRAM + RGBLCD route. LCD uses the
- * LTDC PI/PJ/PK pin group and the backlight occupies PB5, so the measurement
- * input moves from PB5 to PA7.
+ * 非 HOST_TEST 构建使用真实板级映射。这里集中维护 UART、PWM、输入捕获
+ * 和中断入口，避免业务代码里散落硬编码引脚。
  */
 #ifndef HOST_TEST
 #define APP_UART_INSTANCE USART1
@@ -81,6 +123,52 @@
 #define APP_MEASURE_PIN GPIO_PIN_7
 #define APP_MEASURE_GPIO_AF GPIO_AF2_TIM3
 #define APP_MEASURE_TIM_IRQn TIM3_IRQn
+
+#define APP_SCOPE_ADC_INSTANCE ADC1
+#define APP_SCOPE_ADC_GPIO_PORT GPIOA
+#define APP_SCOPE_ADC_PIN_A GPIO_PIN_0
+#define APP_SCOPE_ADC_PIN_B GPIO_PIN_6
+#define APP_SCOPE_ADC_CHANNEL_A ADC_CHANNEL_0
+#define APP_SCOPE_ADC_CHANNEL_B ADC_CHANNEL_6
+#define APP_SCOPE_ADC_DMA_INSTANCE DMA2_Stream0
+#define APP_SCOPE_ADC_DMA_CHANNEL DMA_CHANNEL_0
+#define APP_SCOPE_ADC_DMA_IRQn DMA2_Stream0_IRQn
+#define APP_SCOPE_ADC_TRIGGER_TIM_INSTANCE TIM2
+#define APP_SCOPE_ADC_TRIGGER_TIM_RCC_ENABLE() __HAL_RCC_TIM2_CLK_ENABLE()
+
+#define APP_DAC_INSTANCE DAC
+#define APP_DAC_GPIO_PORT GPIOA
+#define APP_DAC_PIN_A GPIO_PIN_4
+#define APP_DAC_PIN_B GPIO_PIN_5
+#define APP_DAC_TRIGGER_TIM_INSTANCE TIM6
+#define APP_DAC_TRIGGER_TIM_RCC_ENABLE() __HAL_RCC_TIM6_CLK_ENABLE()
+#define APP_DAC_DMA_INSTANCE DMA1_Stream5
+#define APP_DAC_DMA_CHANNEL DMA_CHANNEL_7
+#define APP_DAC_DMA_IRQn DMA1_Stream5_IRQn
+
+/*
+ * 0x4342 面板的触摸为 GT9xxx 电容屏，不是 XPT2046/HR2046 电阻屏。
+ * Apollo HAL 例程给出的引脚为：
+ * PH6=SCL, PI3=SDA, PI8=RST, PH7=INT。
+ */
+#define APP_TOUCH_I2C_SCL_PORT GPIOH
+#define APP_TOUCH_I2C_SCL_PIN GPIO_PIN_6
+#define APP_TOUCH_I2C_SDA_PORT GPIOI
+#define APP_TOUCH_I2C_SDA_PIN GPIO_PIN_3
+#define APP_TOUCH_RST_PORT GPIOI
+#define APP_TOUCH_RST_PIN GPIO_PIN_8
+#define APP_TOUCH_INT_PORT GPIOH
+#define APP_TOUCH_INT_PIN GPIO_PIN_7
+#endif
+
+/* 共享的 APB1 定时器时钟计算。
+ * TIM4 (PWM) 和 TIM3 (测量) 均挂在 APB1 总线上，
+ * 当 PPRE1 != DIV1 时总线时钟翻倍。 */
+#ifndef HOST_TEST
+static inline uint32_t tim_apb1_clock_hz(void) {
+  uint32_t pclk = HAL_RCC_GetPCLK1Freq();
+  return ((RCC->CFGR & RCC_CFGR_PPRE1) == RCC_HCLK_DIV1) ? pclk : (pclk * 2U);
+}
 #endif
 
 #endif

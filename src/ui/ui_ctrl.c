@@ -1,89 +1,158 @@
 #include "ui/ui_ctrl.h"
 
-#include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "display/display.h"
 #include "main.h"
-#include "signal_gen/signal_gen.h"
-#include "signal_measure/signal_measure.h"
+#include "signal_gen/signal_gen_dac.h"
+#include "touch/touch.h"
+#include "ui/ui_actions.h"
 #include "ui/ui_cmd.h"
+#include "ui/ui_touch_map.h"
+
+#ifndef HOST_TEST
 static char command_buffer[48];
 static size_t command_length;
 static UART_HandleTypeDef *console_uart;
-
-static UART_HandleTypeDef *ui_uart(void) {
-  return display_uart_handle();
-}
-
-static void handle_command(const char *line) {
-  ui_cmd_t cmd;
-  signal_gen_config_t next = *signal_gen_current();
-  const signal_measure_result_t *measurement = signal_measure_latest();
-
-  if (!ui_cmd_parse(line, &cmd)) {
-    display_printf("ERR unknown command: %s\r\n", line);
-    display_help();
-    return;
-  }
-
-  switch (cmd.kind) {
-    case UI_CMD_HELP:
-      display_help();
-      return;
-
-    case UI_CMD_STATUS:
-      display_status(signal_gen_current(), signal_measure_latest());
-      return;
-
-    case UI_CMD_SET_FREQ:
-      next.frequency_hz = cmd.value;
-      if (signal_gen_apply(&next)) {
-        display_printf("OK freq=%lu\r\n", next.frequency_hz);
-        display_status(signal_gen_current(), measurement);
-      } else {
-        display_printf("ERR freq range=%u..%u\r\n", APP_PWM_MIN_FREQ_HZ, APP_PWM_MAX_FREQ_HZ);
-      }
-      return;
-
-    case UI_CMD_SET_DUTY:
-      next.duty_percent = (uint8_t)cmd.value;
-      if (signal_gen_apply(&next)) {
-        display_printf("OK duty=%u\r\n", next.duty_percent);
-        display_status(signal_gen_current(), measurement);
-      } else {
-        display_printf("ERR duty range=%u..%u\r\n", APP_PWM_MIN_DUTY_PERCENT, APP_PWM_MAX_DUTY_PERCENT);
-      }
-      return;
-
-    case UI_CMD_NONE:
-    case UI_CMD_INVALID:
-    default:
-      display_printf("ERR unknown command: %s\r\n", line);
-      display_help();
-      return;
-  }
-}
+#endif
+static ui_ctrl_view_t view;
+static active_control_t active_control;
 
 void ui_ctrl_init(void) {
-  console_uart = ui_uart();
+#ifndef HOST_TEST
+  console_uart = display_uart_handle();
   command_length = 0U;
+#endif
+  active_control = ACTIVE_NONE;
+  (void)memset(&view, 0, sizeof(view));
+
+  view.active_config.frequency_hz = signal_gen_dac_current()->frequency_hz;
+  view.active_config.waveform = signal_gen_dac_current()->waveform;
+  view.pending_config = view.active_config;
+  (void)snprintf(view.title, sizeof(view.title), "HeZ2z/stm32-sig-meter");
+
+  ui_actions_init(&view);
+  touch_init();
+
+  view.touch_ready = touch_ready();
+  if (touch_ready()) {
+    (void)snprintf(view.footer, sizeof(view.footer), "TOUCH READY");
+  } else {
+    (void)snprintf(view.footer, sizeof(view.footer), "%s", touch_runtime()->status);
+  }
+  view.screen = UI_SCREEN_CONTROL;
 }
 
 void ui_ctrl_poll(void) {
+#ifndef HOST_TEST
   uint8_t ch;
+  ui_cmd_t cmd = {0};
+  bool line_ready = false;
+#endif
+  uint32_t now = HAL_GetTick();
+  touch_event_t event;
 
+  touch_poll(now);
+
+  view.touch_ready = touch_ready();
+  if (view.touch_ready) {
+    const touch_runtime_t *runtime = touch_runtime();
+    view.touch_pressed = runtime->pressed;
+    if (runtime->last_point.x != 0U || runtime->last_point.y != 0U) {
+      view.last_touch = runtime->last_point;
+    }
+  }
+
+  while (touch_pop_event(&event)) {
+    view.last_touch = event.point;
+    switch (event.kind) {
+      case TOUCH_EVENT_DOWN:
+      case TOUCH_EVENT_MOVE:
+        active_control = hit_control(&event.point, view.more_open);
+        view.highlight = active_highlight_map(active_control);
+        display_refresh_lcd();
+        break;
+      case TOUCH_EVENT_UP:
+        switch (active_control) {
+          case ACTIVE_FREQ_M1000:
+            bump_config(-1000, 0);
+            break;
+          case ACTIVE_FREQ_P1000:
+            bump_config(1000, 0);
+            break;
+          case ACTIVE_WAVE_TOGGLE:
+            toggle_waveform();
+            break;
+          case ACTIVE_SCREEN_TOGGLE:
+            view.screen = view.screen == UI_SCREEN_XY ? UI_SCREEN_CONTROL
+                                                      : UI_SCREEN_XY;
+            (void)snprintf(view.footer, sizeof(view.footer),
+                           view.screen == UI_SCREEN_XY ? "VIEW XY" : "VIEW YT");
+            display_refresh_lcd();
+            break;
+          case ACTIVE_RESET:
+            view.pending_config.frequency_hz = APP_DEFAULT_DAC_FREQ_HZ;
+            view.pending_config.waveform = APP_DAC_WAVE_SQUARE;
+            view.screen = UI_SCREEN_CONTROL;
+            apply_pending_config();
+            break;
+          case ACTIVE_HELP:
+            view.more_open = !view.more_open;
+            (void)snprintf(view.footer, sizeof(view.footer),
+                           view.more_open ? "PROJECT INFO OPEN" : "PROJECT INFO CLOSED");
+            display_refresh_lcd();
+            break;
+          case ACTIVE_NONE:
+            if (view.more_open) {
+              view.more_open = false;
+              (void)snprintf(view.footer, sizeof(view.footer), "PROJECT INFO CLOSED");
+              display_refresh_lcd();
+            }
+            break;
+          default:
+            break;
+        }
+        active_control = ACTIVE_NONE;
+        view.highlight = UI_HIGHLIGHT_NONE;
+        break;
+      case TOUCH_EVENT_NONE:
+      default:
+        break;
+    }
+  }
+
+#ifndef HOST_TEST
   if (HAL_UART_Receive(console_uart, &ch, 1U, 0U) != HAL_OK) {
     return;
   }
 
-  bool line_ready = false;
-  if (!ui_cmd_push_char(command_buffer, sizeof(command_buffer), ch, &command_length, &line_ready)) {
+  if (!ui_cmd_push_char(command_buffer,
+                        sizeof(command_buffer),
+                        ch,
+                        &command_length,
+                        &line_ready)) {
     display_write("ERR command too long\r\n");
+    (void)snprintf(view.footer, sizeof(view.footer), "UART CMD TOO LONG");
     return;
   }
 
-  if (line_ready) {
-    handle_command(command_buffer);
+  if (!line_ready) {
+    return;
   }
+
+  if (command_buffer[0] == '\0') {
+    return;
+  }
+
+  if (!ui_cmd_parse(command_buffer, &cmd)) {
+    cmd.kind = UI_CMD_INVALID;
+  }
+  handle_ui_command(&cmd);
+#endif
+}
+
+const ui_ctrl_view_t *ui_ctrl_view(void) {
+  return &view;
 }

@@ -4,8 +4,10 @@
 
 #include "ui/ui_cmd.h"
 
+/* 该文件覆盖命令解析和命令缓冲状态机。 */
 static int failures = 0;
 
+/* 简易断言助手：失败时打印用例意图并累计失败数。 */
 static void expect(bool condition, const char *message) {
   if (!condition) {
     fprintf(stderr, "FAIL: %s\n", message);
@@ -13,6 +15,7 @@ static void expect(bool condition, const char *message) {
   }
 }
 
+/* help/status/freq/duty 是当前项目对外承诺的最小命令集。 */
 static void test_parse_help(void) {
   ui_cmd_t cmd;
   expect(ui_cmd_parse("help", &cmd), "help should parse");
@@ -39,6 +42,20 @@ static void test_parse_duty(void) {
   expect(cmd.value == 30U, "duty value");
 }
 
+static void test_parse_phase(void) {
+  ui_cmd_t cmd;
+  expect(ui_cmd_parse("phase 628", &cmd), "phase should parse");
+  expect(cmd.kind == UI_CMD_SET_PHASE, "phase kind");
+  expect(cmd.value == 628U, "phase value");
+}
+
+static void test_parse_ratio(void) {
+  ui_cmd_t cmd;
+  expect(ui_cmd_parse("ratio 2", &cmd), "ratio should parse");
+  expect(cmd.kind == UI_CMD_SET_RATIO, "ratio kind");
+  expect(cmd.value == 2U, "ratio value");
+}
+
 static void test_parse_invalid(void) {
   ui_cmd_t cmd;
   expect(!ui_cmd_parse("hello", &cmd), "invalid command rejected");
@@ -52,6 +69,7 @@ static void test_parse_leading_space(void) {
   expect(cmd.value == 2000U, "leading spaces freq value");
 }
 
+/* 覆盖串口逐字节接收、回车成行、溢出和退格场景。 */
 static void test_push_char(void) {
   char buffer[8] = {0};
   size_t length = 0;
@@ -95,6 +113,8 @@ int main(void) {
   test_parse_status();
   test_parse_freq();
   test_parse_duty();
+  test_parse_phase();
+  test_parse_ratio();
   test_parse_invalid();
   test_parse_leading_space();
   test_push_char();

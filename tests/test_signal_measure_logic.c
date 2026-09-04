@@ -4,6 +4,7 @@
 
 #include "signal_measure/signal_measure_logic.h"
 
+/* 覆盖测量结果换算、边界输入和计数回绕样例。 */
 static int failures = 0;
 
 static void expect(bool condition, const char *message) {
@@ -13,6 +14,7 @@ static void expect(bool condition, const char *message) {
   }
 }
 
+/* 2000Hz/30% 是项目里重点验证过的实板场景。 */
 static void test_compute_2000hz_30pct(void) {
   signal_measure_result_t result = {0};
 
@@ -23,6 +25,7 @@ static void test_compute_2000hz_30pct(void) {
   expect(result.duty_percent == 30U, "duty 30 percent");
 }
 
+/* 覆盖多组常见频率/占空比组合。 */
 static void test_compute_other_ratios(void) {
   signal_measure_result_t result = {0};
 
@@ -37,6 +40,7 @@ static void test_compute_other_ratios(void) {
   expect(result.duty_percent == 70U, "duty 70 percent");
 }
 
+/* 关键非法输入必须被逻辑层拒绝。 */
 static void test_compute_rejects_bad_inputs(void) {
   signal_measure_result_t result = {0};
 
@@ -45,6 +49,7 @@ static void test_compute_rejects_bad_inputs(void) {
   expect(!signal_measure_compute_result(100U, 50U, 0U, &result), "zero timer tick rejected");
 }
 
+/* 展示如何先做计数回绕差分，再复用统一换算逻辑。 */
 static void test_wraparound_delta_example(void) {
   signal_measure_result_t result = {0};
   uint32_t first = 65500U;
